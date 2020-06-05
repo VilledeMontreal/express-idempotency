@@ -1,0 +1,10 @@
+version: '3.1'
+
+services:
+  webapp:
+    build:
+      context: ../../.
+      dockerfile: ./examples/simple-use/Dockerfile
+    image: villemontreal/express-idempotency-example
+    ports:
+      - '8080:8080'
