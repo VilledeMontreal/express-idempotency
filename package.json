@@ -1,5 +1,5 @@
 {
-  "name": "@villemontreal/express-idempotency",
+  "name": "@villedemontreal/express-idempotency",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
@@ -10,12 +10,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://joscelynjean@bitbucket.org/villemontreal/express-idempotency.git"
+    "url": "git+https://github.com/VilledeMontreal/express-idempotency"
   },
   "author": "Ville de Montréal",
   "license": "MIT",
-  "homepage": "https://bitbucket.org/villemontreal/express-idempotency#readme",
+  "homepage": "https://github.com/VilledeMontreal/express-idempotencyy",
   "devDependencies": {
+    "@commitlint/cli": "^8.3.5",
+    "@commitlint/config-conventional": "^8.3.4",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/chai": "^4.2.11",
     "@types/deep-equal": "^1.0.1",
@@ -45,6 +47,7 @@
   },
   "husky": {
     "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
       "pre-commit": "",
       "pre-push": "npm test"
     }
