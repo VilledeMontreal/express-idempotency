@@ -1,5 +1,4 @@
 TODO : Badges
-TODO
 
 ([Français](#french-version))
 
