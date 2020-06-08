@@ -4,6 +4,8 @@
 
 # Template for open source code repositories of the Ville de Montréal
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/bdce97e79b814ea3b47831dc2d042f71)](https://app.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade_Dashboard)
+
 ## Template for README.md
 
 - Project description
