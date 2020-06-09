@@ -17,10 +17,10 @@ import {
 } from '../models/models'
 
 // Default values
-const IDEMPOTENCY_KEY_HEADER: string = 'idempotency-key'
+const IDEMPOTENCY_KEY_HEADER = 'idempotency-key'
 
-const HIT_HEADER: string = 'x-hit'
-const HIT_VALUE: string = 'true'
+const HIT_HEADER = 'x-hit'
+const HIT_VALUE = 'true'
 
 // tslint:disable-next-line:interface-name
 interface InternalExpressResponse extends express.Response {
@@ -192,7 +192,7 @@ export class IdempotencyService {
             this.writeHeadHook(res),
             this.sendHook(res),
         ])
-            .then(async ([[statusCode, headers], body]) => {
+            .then(async ([[statusCode], body]) => {
                 // Receive everything required to assemble a idempotency response.
                 // logger.info(headers);
                 const response = this.buildIdempotencyResponse(
@@ -223,13 +223,13 @@ export class IdempotencyService {
                     throw err
                 }
             })
-            .catch(async (err) => {
+            .catch(async () => {
                 try {
                     console.log(
                         'Something went wrong, try to remove idempotency...'
                     )
                     await this._options.dataAdapter.delete(idempotencyKey)
-                } catch (err2) {
+                } catch (err) {
                     console.log(
                         'Error while removing idempotency key during failing hook.'
                     )

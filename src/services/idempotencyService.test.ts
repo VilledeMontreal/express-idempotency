@@ -184,7 +184,7 @@ describe('Idempotency service', () => {
 
     it('handles correctly error while persisting resource', async () => {
         const req = createRequest()
-        let res = httpMocks.createResponse()
+        const res = httpMocks.createResponse()
         const dataAdapterStub = sinon.stub(dataAdapter, 'delete').throws('Doh!')
         const persistanceValidationStud = sinon
             .stub(responseValidator, 'isValidForPersistence')
