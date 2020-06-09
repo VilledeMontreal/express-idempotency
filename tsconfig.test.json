@@ -3,5 +3,7 @@
   "compilerOptions": {
     "outDir": "./.temp"
   },
-  "exclude": [".temp"]
+  "exclude": [
+    ".temp"
+  ]
 }
