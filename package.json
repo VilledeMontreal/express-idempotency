@@ -1,0 +1,55 @@
+{
+  "name": "@villedemontreal/express-idempotency",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "compile": "./node_modules/.bin/tsc --build tsconfig.dist.json",
+    "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VilledeMontreal/express-idempotency"
+  },
+  "author": "Ville de Montréal",
+  "license": "MIT",
+  "homepage": "https://github.com/VilledeMontreal/express-idempotencyy",
+  "devDependencies": {
+    "@commitlint/cli": "^8.3.5",
+    "@commitlint/config-conventional": "^8.3.4",
+    "@istanbuljs/nyc-config-typescript": "^1.0.1",
+    "@types/chai": "^4.2.11",
+    "@types/deep-equal": "^1.0.1",
+    "@types/express": "^4.17.6",
+    "@types/faker": "^4.1.12",
+    "@types/mocha": "^7.0.2",
+    "@types/sinon": "^9.0.4",
+    "autobind-decorator": "^2.4.0",
+    "chai": "^4.2.0",
+    "faker": "^4.1.0",
+    "husky": "^4.2.5",
+    "mocha": "^7.2.0",
+    "node-mocks-http": "^1.8.1",
+    "nyc": "^15.0.1",
+    "prettier": "2.0.5",
+    "sinon": "^9.0.2",
+    "source-map-support": "^0.5.19",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.8.3"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "deep-equal": "^2.0.3",
+    "http-status-codes": "^1.4.0"
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-commit": "",
+      "pre-push": "npm test"
+    }
+  }
+}
