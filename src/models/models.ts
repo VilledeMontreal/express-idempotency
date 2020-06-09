@@ -11,25 +11,25 @@ export interface IIdempotencyDataAdapter {
      * @param idempotencyKey Idempotency key
      * @returns Idempotency resource
      */
-    findByIdempotencyKey(idempotencyKey: string): Promise<IdempotencyResource>
+    findByIdempotencyKey(idempotencyKey: string): Promise<IdempotencyResource>;
 
     /**
      * Create a idempotency resource.
      * @param idempotencyResource Idempotency resource
      */
-    create(idempotencyResource: IdempotencyResource): Promise<void>
+    create(idempotencyResource: IdempotencyResource): Promise<void>;
 
     /**
      * Update a idempotency resource.
      * @param idempotencyResource Idempotency resource
      */
-    update(idempotencyResource: IdempotencyResource): Promise<void>
+    update(idempotencyResource: IdempotencyResource): Promise<void>;
 
     /**
      * Delete a idempotency resource.
      * @param idempotencyKey Resource to delete
      */
-    delete(idempotencyKey: string): Promise<void>
+    delete(idempotencyKey: string): Promise<void>;
 }
 
 /**
@@ -39,27 +39,27 @@ export interface IIdempotencyDataAdapter {
 export interface IdempotencyOptions {
     // Specify the header to be used to retrieve the idempotency key.
     // Default value is 'idempotency-key'.
-    idempotencyKeyHeader?: string
+    idempotencyKeyHeader?: string;
     // The data adapter used to store the resources.
     // Default is the InMemoryDataAdapter.
-    dataAdapter?: IIdempotencyDataAdapter
+    dataAdapter?: IIdempotencyDataAdapter;
     // Logic to indicate if response must be kept for idempotency
     // Default is the SuccessfulResponseValidator.
-    responseValidator?: IIdempotencyResponseValidator
+    responseValidator?: IIdempotencyResponseValidator;
     // Validate the intent of the request
     // Default is the DefaultIntentValidator.
-    intentValidator?: IIdempotencyIntentValidator
+    intentValidator?: IIdempotencyIntentValidator;
 }
 
 /**
  * Idempotency request.
  */
 export interface IdempotencyRequest {
-    body: any
-    headers: any
-    method: string
-    query: any
-    url: string
+    body: any;
+    headers: any;
+    method: string;
+    query: any;
+    url: string;
 }
 
 /**
@@ -67,9 +67,9 @@ export interface IdempotencyRequest {
  * Keep a reference of the response (ex: http status) and the body.
  */
 export class IdempotencyResponse {
-    public statusCode?: number
-    public headers: any
-    public body?: any
+    public statusCode?: number;
+    public headers: any;
+    public body?: any;
 }
 
 /**
@@ -83,19 +83,19 @@ export interface IdempotencyResource {
     /**
      * The key which make the operation idempotent.
      */
-    idempotencyKey: string
+    idempotencyKey: string;
 
     /**
      * The initial request. Can be used to validate that a subsequent
      * request if the same and the idempotency key is not misused.
      */
-    request: IdempotencyRequest
+    request: IdempotencyRequest;
 
     /**
      * The response received from the operation and that will
      * be returned for a matching idempotency key.
      */
-    response?: IdempotencyResponse
+    response?: IdempotencyResponse;
 }
 
 /**
@@ -107,7 +107,7 @@ export interface IIdempotencyResponseValidator {
      * @param idempotencyResponse Response to validate
      * @returns Indicate if need to persist
      */
-    isValidForPersistence(idempotencyResponse: IdempotencyResponse): boolean
+    isValidForPersistence(idempotencyResponse: IdempotencyResponse): boolean;
 }
 
 /**
@@ -125,5 +125,5 @@ export interface IIdempotencyIntentValidator {
     isValidIntent(
         req: Express.Request,
         idempotencyRequest: IdempotencyRequest
-    ): boolean
+    ): boolean;
 }

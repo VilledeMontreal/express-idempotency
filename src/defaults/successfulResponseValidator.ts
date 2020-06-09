@@ -5,7 +5,7 @@
 import {
     IIdempotencyResponseValidator,
     IdempotencyResponse,
-} from '../models/models'
+} from '../models/models';
 
 /**
  * Implementation of response validator.
@@ -24,6 +24,6 @@ export class SuccessfulResponseValidator
         return (
             idempotencyResponse.statusCode >= 200 &&
             idempotencyResponse.statusCode <= 299
-        )
+        );
     }
 }

@@ -2,7 +2,7 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-import { IdempotencyResource, IIdempotencyDataAdapter } from '../models/models'
+import { IdempotencyResource, IIdempotencyDataAdapter } from '../models/models';
 
 /**
  * In memory data adapter is basically a map which store keys
@@ -11,20 +11,20 @@ import { IdempotencyResource, IIdempotencyDataAdapter } from '../models/models'
  */
 export class InMemoryDataAdapter implements IIdempotencyDataAdapter {
     // Resource storage
-    private idempotencyResources: IdempotencyResource[] = []
+    private idempotencyResources: IdempotencyResource[] = [];
 
     public async findByIdempotencyKey(
         idempotencyKey: string
     ): Promise<IdempotencyResource> {
         const result = this.idempotencyResources.filter((value) => {
-            return value.idempotencyKey === idempotencyKey
-        })
+            return value.idempotencyKey === idempotencyKey;
+        });
 
         if (result.length === 0) {
-            return null
+            return null;
         }
 
-        return result[0]
+        return result[0];
     }
 
     public async create(
@@ -32,11 +32,11 @@ export class InMemoryDataAdapter implements IIdempotencyDataAdapter {
     ): Promise<void> {
         const resource = await this.findByIdempotencyKey(
             idempotencyResource.idempotencyKey
-        )
+        );
         if (resource) {
-            throw new Error('Duplicate')
+            throw new Error('Duplicate');
         }
-        this.idempotencyResources.push(idempotencyResource)
+        this.idempotencyResources.push(idempotencyResource);
     }
 
     public async update(
@@ -44,16 +44,16 @@ export class InMemoryDataAdapter implements IIdempotencyDataAdapter {
     ): Promise<void> {
         const findIndex = this.idempotencyResources.findIndex(
             (x) => x.idempotencyKey === idempotencyResource.idempotencyKey
-        )
-        this.idempotencyResources[findIndex] = idempotencyResource
+        );
+        this.idempotencyResources[findIndex] = idempotencyResource;
     }
 
     public async delete(idempotencyKey: string): Promise<void> {
         const findIndex = this.idempotencyResources.findIndex(
             (x) => x.idempotencyKey === idempotencyKey
-        )
+        );
         if (findIndex >= 0) {
-            this.idempotencyResources.splice(findIndex, 1)
+            this.idempotencyResources.splice(findIndex, 1);
         }
     }
 }

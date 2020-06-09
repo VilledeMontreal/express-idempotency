@@ -1,11 +1,11 @@
-import { DefaultIntentValidator } from './defaultIntentValidator'
-import { assert } from 'chai'
-import * as httpMocks from 'node-mocks-http'
-import { IdempotencyRequest } from '../models/models'
+import { DefaultIntentValidator } from './defaultIntentValidator';
+import { assert } from 'chai';
+import * as httpMocks from 'node-mocks-http';
+import { IdempotencyRequest } from '../models/models';
 
 describe('Default intent validator', () => {
     // Validator to test
-    const validator = new DefaultIntentValidator()
+    const validator = new DefaultIntentValidator();
 
     const idempotencyRequest: IdempotencyRequest = {
         url: 'http://something/path',
@@ -26,7 +26,7 @@ describe('Default intent validator', () => {
                 nestedProperty2: 'b',
             },
         },
-    }
+    };
 
     it('validates the intent', () => {
         const req = httpMocks.createRequest({
@@ -35,10 +35,10 @@ describe('Default intent validator', () => {
             method: 'POST',
             headers: idempotencyRequest.headers,
             body: idempotencyRequest.body,
-        })
+        });
 
-        assert.isTrue(validator.isValidIntent(req, idempotencyRequest))
-    })
+        assert.isTrue(validator.isValidIntent(req, idempotencyRequest));
+    });
 
     it('detects unmatching url', () => {
         const req = httpMocks.createRequest({
@@ -46,10 +46,10 @@ describe('Default intent validator', () => {
             method: 'POST',
             query: idempotencyRequest.query,
             body: idempotencyRequest.body,
-        })
+        });
 
-        assert.isFalse(validator.isValidIntent(req, idempotencyRequest))
-    })
+        assert.isFalse(validator.isValidIntent(req, idempotencyRequest));
+    });
 
     it('detects unmatching method', () => {
         const req = httpMocks.createRequest({
@@ -57,10 +57,10 @@ describe('Default intent validator', () => {
             method: 'PUT',
             query: idempotencyRequest.query,
             body: idempotencyRequest.body,
-        })
+        });
 
-        assert.isFalse(validator.isValidIntent(req, idempotencyRequest))
-    })
+        assert.isFalse(validator.isValidIntent(req, idempotencyRequest));
+    });
 
     it('detects unmatching query parameters', () => {
         const req = httpMocks.createRequest({
@@ -71,10 +71,10 @@ describe('Default intent validator', () => {
                 param2: 'c',
             },
             body: idempotencyRequest.body.deepCl,
-        })
+        });
 
-        assert.isFalse(validator.isValidIntent(req, idempotencyRequest))
-    })
+        assert.isFalse(validator.isValidIntent(req, idempotencyRequest));
+    });
 
     it('detects unmatching body', () => {
         const req = httpMocks.createRequest({
@@ -89,8 +89,8 @@ describe('Default intent validator', () => {
                     nestedProperty2: 'd',
                 },
             },
-        })
+        });
 
-        assert.isFalse(validator.isValidIntent(req, idempotencyRequest))
-    })
-})
+        assert.isFalse(validator.isValidIntent(req, idempotencyRequest));
+    });
+});

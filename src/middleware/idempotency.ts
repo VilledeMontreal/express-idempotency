@@ -2,28 +2,28 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-import * as express from 'express'
-import { IdempotencyOptions } from '../models/models'
-import { IdempotencyService } from '../services/idempotencyService'
+import * as express from 'express';
+import { IdempotencyOptions } from '../models/models';
+import { IdempotencyService } from '../services/idempotencyService';
 
 export const ERROR_MSG_NOT_INITIALIZED =
-    'Idempotency service has not been initialized by the middleware.'
+    'Idempotency service has not been initialized by the middleware.';
 
 // Represent a valid function to use as a middleware for express
 type expressMiddleware = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction
-) => Promise<void>
+) => Promise<void>;
 
 // Keep a single instance of the service
-let idempotencyService: IdempotencyService = null
+let idempotencyService: IdempotencyService = null;
 
 export function getSharedIdempotencyService(): IdempotencyService {
     if (idempotencyService) {
-        return idempotencyService
+        return idempotencyService;
     }
-    throw new Error(ERROR_MSG_NOT_INITIALIZED)
+    throw new Error(ERROR_MSG_NOT_INITIALIZED);
 }
 
 /**
@@ -32,6 +32,6 @@ export function getSharedIdempotencyService(): IdempotencyService {
 export const idempotency = (
     options?: IdempotencyOptions
 ): expressMiddleware => {
-    idempotencyService = new IdempotencyService(options)
-    return idempotencyService.provideMiddlewareFunction
-}
+    idempotencyService = new IdempotencyService(options);
+    return idempotencyService.provideMiddlewareFunction;
+};
