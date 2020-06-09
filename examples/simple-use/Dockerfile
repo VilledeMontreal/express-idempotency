@@ -10,10 +10,12 @@ COPY . .
 RUN npm install && npm run compile && npm link
 
 # Installation of package to run the application
-RUN cd examples/simple-use && npm link "@villemontreal/express-idempotency" && npm install
+WORKDIR /usr/src/app/examples/simple-use
+RUN npm link "@villemontreal/express-idempotency" && npm install
 
 EXPOSE 8080
 
 # Run the application
+WORKDIR /usr/src/app
 CMD ["node", "./examples/simple-use/src/index.js"]
 
