@@ -12,18 +12,21 @@ import deepEqual from 'deep-equal';
  * It basically check only the request address to see if it is corresponding.
  */
 export class DefaultIntentValidator implements IIdempotencyIntentValidator {
-  /**
-   * Check if the original and current request url is the same.
-   * @param req request to validate
-   * @param idempotencyRequest original request which created the idempotency resource
-   */
-  isValidIntent(req: express.Request, idempotencyRequest: IdempotencyRequest): boolean {
-    // Compare original and current requests
-    return (
-      req.url === idempotencyRequest.url &&
-      req.method === idempotencyRequest.method &&
-      deepEqual(req.query, idempotencyRequest.query) &&
-      deepEqual(req.body, idempotencyRequest.body)
-    );
-  }
+    /**
+     * Check if the original and current request url is the same.
+     * @param req request to validate
+     * @param idempotencyRequest original request which created the idempotency resource
+     */
+    isValidIntent(
+        req: express.Request,
+        idempotencyRequest: IdempotencyRequest
+    ): boolean {
+        // Compare original and current requests
+        return (
+            req.url === idempotencyRequest.url &&
+            req.method === idempotencyRequest.method &&
+            deepEqual(req.query, idempotencyRequest.query) &&
+            deepEqual(req.body, idempotencyRequest.body)
+        );
+    }
 }
