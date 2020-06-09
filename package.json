@@ -7,8 +7,10 @@
   "scripts": {
     "compile": "./node_modules/.bin/tsc --build tsconfig.dist.json",
     "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha",
-    "lint": "./node_modules/.bin/eslint . --ext .ts,.tsx",
-    "prettier": "./node_modules/.bin/prettier --check ./src"
+    "lint": "./node_modules/.bin/eslint ./src --ext .ts,.tsx",
+    "lint:fix": "./node_modules/.bin/eslint ./src --ext .ts,.tsx --fix",
+    "prettier": "./node_modules/.bin/prettier --check ./src",
+    "prettier:fix": "./node_modules/.bin/prettier --write ./src"
   },
   "repository": {
     "type": "git",
@@ -55,7 +57,7 @@
     "hooks": {
       "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
       "pre-commit": "",
-      "pre-push": "npm test"
+      "pre-push": "npm run prettier && npm run lint && npm test"
     }
   }
 }
