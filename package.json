@@ -6,7 +6,9 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "compile": "./node_modules/.bin/tsc --build tsconfig.dist.json",
-    "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha"
+    "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha",
+    "lint": "./node_modules/.bin/eslint . --ext .ts,.tsx",
+    "prettier": "./node_modules/.bin/prettier --check ./src"
   },
   "repository": {
     "type": "git",
@@ -25,8 +27,12 @@
     "@types/faker": "^4.1.12",
     "@types/mocha": "^7.0.2",
     "@types/sinon": "^9.0.4",
+    "@typescript-eslint/eslint-plugin": "^3.2.0",
+    "@typescript-eslint/parser": "^3.2.0",
     "autobind-decorator": "^2.4.0",
     "chai": "^4.2.0",
+    "eslint": "^7.2.0",
+    "eslint-config-prettier": "^6.11.0",
     "faker": "^4.1.0",
     "husky": "^4.2.5",
     "mocha": "^7.2.0",
