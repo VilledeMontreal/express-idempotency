@@ -20,8 +20,8 @@ This is a [Node.js](https://nodejs.org/) module designed to work with Express, a
 
 ## Features
 
-- Middleware for Express with a high level of customization
-- Helpers to detect processing from the middleware and report errors
+-   Middleware for Express with a high level of customization
+-   Helpers to detect processing from the middleware and report errors
 
 ## Examples
 
@@ -47,14 +47,14 @@ The idempotency middleware will call the next function, whenever a idempotency k
 
 ```javascript
 app.post('/', function (req, res) {
-  // Check if there was a hit!
-  const idempotencyService = getSharedIdempotencyService();
-  if (idempotencyService.isHit(req)) {
-    return;
-  }
+    // Check if there was a hit!
+    const idempotencyService = getSharedIdempotencyService();
+    if (idempotencyService.isHit(req)) {
+        return;
+    }
 
-  // Do something
-  res.send('Got a new POST request');
+    // Do something
+    res.send('Got a new POST request');
 });
 ```
 
@@ -64,11 +64,11 @@ Sometimes, there is errors that can occur in the process of the request. In that
 
 ```javascript
 app.post('/', function (req, res) {
-  const idempotencyService = getSharedIdempotencyService();
+    const idempotencyService = getSharedIdempotencyService();
 
-  // Processing...
-  // Oh BOOM! There is a error. Let's notify the middleware.
-  idempotencyService.reportError(req);
+    // Processing...
+    // Oh BOOM! There is a error. Let's notify the middleware.
+    idempotencyService.reportError(req);
 });
 ```
 
@@ -78,17 +78,17 @@ You can configure the way the idempotency middleware will behave by providing op
 
 ```javascript
 app.post(
-  '*',
-  idempotency({
-    // Specify the header to be used to retrieve the idempotency key.
-    idempotencyKeyHeader,
-    // The data adapter used to store the resources.
-    dataAdapter,
-    // Logic to indicate if response must be kept for idempotency
-    responseValidator,
-    // Logic to detect misuse of the idempotency key
-    intentValidator,
-  })
+    '*',
+    idempotency({
+        // Specify the header to be used to retrieve the idempotency key.
+        idempotencyKeyHeader,
+        // The data adapter used to store the resources.
+        dataAdapter,
+        // Logic to indicate if response must be kept for idempotency
+        responseValidator,
+        // Logic to detect misuse of the idempotency key
+        intentValidator,
+    })
 );
 ```
 
@@ -102,9 +102,7 @@ The data adapter allows to persist cached response for a idempotency key. The de
 
 You can create your own data adapter by implementing the `IIdempotencyDataAdapter` interface but there is already some implementation ready.
 
-- Mongo Data Adapter
-
-Please feel free to email us to add your own implementation in this list.
+-   Mongo Data Adapter
 
 #### Response validator
 
@@ -112,11 +110,13 @@ By default, a request will be considered successful and the response will be cac
 
 ```typescript
 export class CustomResponseValidator implements IIdempotencyResponseValidator {
-  public isValidForPersistence(idempotencyResponse: IdempotencyResponse): boolean {
-    // Insert logic here
-    // For example, we could cache any 500 status code.
-    return idempotencyResponse.statusCode == 500;
-  }
+    public isValidForPersistence(
+        idempotencyResponse: IdempotencyResponse
+    ): boolean {
+        // Insert logic here
+        // For example, we could cache any 500 status code.
+        return idempotencyResponse.statusCode == 500;
+    }
 }
 ```
 
@@ -158,31 +158,142 @@ Participation in this poject is governed by the [Code of Conduct](CODE_OF_CONDUC
 
 <a id='french-version' class='anchor' aria-hidden='true'></a>
 
-# Gabarit pour dépôts de code source libre de la Ville de Montréal
+# Middleware d'idempotence pour Express
 
-## Gabarit pour README.md
+Ajouter à [Express](https://expressjs.com) des fonctionnalités d'idempotence pour certaines routes rapidement, sans effort. L'implémentation est inspirée par la stratégie de Stripe.
 
-Description du projet
+Ce module [Node.js](https://nodejs.org/) est conçu pour fonctionner avec Express, et disponible sur le [registre NPM](https://www.npmjs.com/).
 
-### Détails
+## Fonctionnalités
 
-- Comment fonctionne le produit?
-- À qui s'adresse le produit?
+-   Middleware pour Express avec un haut niveau de configuration
+-   Utilitaires pour permettre la détection de l'intervention du middleware et rapporter les erreurs
 
-### Bâtir
+## Exemples
 
-### Installer
+Pour des exemples, voir le répertoire `examples`.
 
-### Tester
+## Démarrage rapide
 
-### Contribuer
+Installation de la dépendance.
+
+```
+$ npm install @villedemontreal/idempotency-express
+```
+
+Intégrer le middleware dans l'initialisation de votre application Express.
+
+```javascript
+app.post('*', idempotency());
+```
+
+### Déterminer l'intervention du middleware dans une route
+
+Le middleware d'idempotence va faire l'appel de la fonction next, peu importe si la clé d'idempotence est détecté ou non. Cette décision de design permet de conserver la chaine de communication quant à la prise en charge de la requête. Afin de prévenir une transaction d'être exécuté une deuxième fois, il y a une fonction _hit_ permettant d'identifier le traitement préalable du middleware.
+
+```javascript
+app.post('/', function (req, res) {
+    // Vérifier l'intenvention!
+    const idempotencyService = getSharedIdempotencyService();
+    if (idempotencyService.isHit(req)) {
+        return;
+    }
+
+    // Faire quelque chose
+    res.send('Got a new POST request');
+});
+```
+
+### Rapporter des erreurs de traitement
+
+Quelques fois, on veut communiquer au middleware que le traitement attendu a échoué. Dans ces cas, il faut que le middleware sache qu'une erreur est survenue et retirer l'information relative à la clé d'idempotence courante. On peut donc notifier le middleware en utilisant la fonction _reportError_.
+
+```javascript
+app.post('/', function (req, res) {
+    const idempotencyService = getSharedIdempotencyService();
+
+    // Processing...
+    // Oh BOOM! There is a error. Let's notify the middleware.
+    idempotencyService.reportError(req);
+});
+```
+
+### Options
+
+Vous pouvez configurer lors de l'initialisation la façon dont le middleware va se comporter.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        // Préciser l'entête de requête contenant la clé d'idempotence.
+        idempotencyKeyHeader,
+        // L'adapteur de données utilisé pour stocker les informations.
+        dataAdapter,
+        // Préciser la logique permettant d'indiquer si la réponse doit être conservé pour l'idempotence.
+        responseValidator,
+        // Préciser la logique à appliquer pour s'assurer de la bonne utilisation de la clé d'idempotence.
+        intentValidator,
+    })
+);
+```
+
+#### Changer la clé d'entête de requête
+
+Par défaut, l'entête utilisé pour la clé d'idempotence est `Idempotency-Key` mais elle peut être changé pour une autre valeur désirée.
+
+#### Adapteur de données
+
+L'adapteur de données permet de persister l'information relatif à la clé d'idempotence. L'implémentation par défaut conserve l'information en mémoire, ce qui n'est pas recommandé pour un environnement de production.
+
+Vous pouvez créer votre propre adapteur de données par l'implémentation de l'interface `IIdempotencyDataAdapter`. Les implémentations connues sont les suivantes :
+
+-   Mongo Data Adapter
+
+#### Validateur de réponse
+
+Par défaut, une requête est considéré valide lorsque le statut http est entre 200 et 299 inclusivement. À ce moment-là, la réponse est persistée. Si ce n'est pas le comportement attendu, il est possible d'implémenter sa propre logique en fournissant votre propre validateur de réponse. À ce moment-là, il faut implémenter l'interface `IIdempotencyResponseValidator`.
+
+```typescript
+export class CustomResponseValidator implements IIdempotencyResponseValidator {
+    public isValidForPersistence(
+        idempotencyResponse: IdempotencyResponse
+    ): boolean {
+        // Insert logic here
+        // For example, we could cache any 500 status code.
+        return idempotencyResponse.statusCode == 500;
+    }
+}
+```
+
+#### Validateur d'intention
+
+Lorsqu'on reçoit une requête avec une clé d'idempotence, le middleware va comparer celle-ci avec la requête originale ayant généré une ressource idempotente afin d'assurer l'intention. Par défaut, le middleware va s'assurer que l'adresse (url), la méthode, les paramètres de requête et le contenu. Si l'un de ces éléments divergent, la requête va être considéré comme invalide et l'utilisation de la clé d'idempotence incorrecte.
+
+Ce comporement peut être remplacé en fournissant son propre validateur d'intention par l'implémentation de l'interface `IIdempotencyIntentValidator`.
+
+```typescript
+export class CustomIntentValidator implements IIdempotencyIntentValidator {
+
+  isValidIntent(req: express.Request, idempotencyRequest: IdempotencyRequest): boolean {
+    // Insérer logique ici
+    // Par exemple, seulement l'adresse doit correspondre
+    return req.url === idempotencyRequest.url;
+  }
+```
+
+## Contribuer
 
 Voir [CONTRIBUTING.md](CONTRIBUTING.md#french-version)
 
-### Licence et propriété intellectuelle
+## Licence et propriété intellectuelle
 
 Le code source de ce projet est libéré sous la licence [MIT License](LICENSE).
 
-### Code de Conduite
+## Code de Conduite
 
 La participation à ce projet est réglementée part le [Code de Conduite](CODE_OF_CONDUCT.md#french-version)
+
+## Références
+
+1. [Designing robust and predictable APIs with idempotency](https://stripe.com/fr-ca/blog/idempotency)
