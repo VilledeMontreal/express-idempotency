@@ -9,35 +9,57 @@ jobs:
     steps:
       - checkout
       - run: npm install
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
   test:
     executor:
       name: node/default
     steps:
+      - attach_workspace:
+          at: ~/repo
       - run: npm test
       - coverage-reporter/send_report:
           coverage-reports: "coverage/lcov.info"
           project-token: ${CODACY_PROJECT_TOKEN}
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
   package:
     executor:
       name: node/default
     steps:
+      - attach_workspace:
+          at: ~/repo
       - run: npm run compile
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
   pre-deploy:
     executor:
       name: node/default
     steps:
+      - attach_workspace:
+          at: ~/repo
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
   deploy:
     executor:
       name: node/default
     steps:
+      - attach_workspace:
+          at: ~/repo
       - run: npm publish
   deploy-rc:
     executor:
       name: node/default
     steps:
+      - attach_workspace:
+          at: ~/repo
       - run: npm publish --tag rc
 workflows:
   build-test-package-deploy:
