@@ -13,7 +13,8 @@ jobs:
       - run: npm install
       - persist_to_workspace:
           root: .
-          paths: .
+          paths:
+            - ./**/*
   test:
     executor:
       name: node/default
@@ -33,7 +34,8 @@ jobs:
       - run: npm run compile
       - persist_to_workspace:
           root: .
-          paths: dist
+          paths:
+            - ./dist
   pre-deploy:
     executor:
       name: node/default
@@ -45,7 +47,8 @@ jobs:
           command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
       - persist_to_workspace:
           root: .
-          paths: .npmrc
+          paths:
+            - .npmrc
   deploy:
     executor:
       name: node/default
