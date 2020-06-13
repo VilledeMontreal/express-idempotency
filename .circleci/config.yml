@@ -6,6 +6,7 @@ jobs:
   checkout:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
@@ -18,6 +19,7 @@ jobs:
   test:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
@@ -28,6 +30,7 @@ jobs:
   package:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
@@ -39,6 +42,7 @@ jobs:
   pre-deploy:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
@@ -52,6 +56,7 @@ jobs:
   deploy:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
@@ -59,6 +64,7 @@ jobs:
   deploy-rc:
     executor:
       name: node/default
+    working_directory: ~/repo
     steps:
       - attach_workspace:
           at: ~/repo
