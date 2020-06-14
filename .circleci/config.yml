@@ -16,6 +16,8 @@ jobs:
       - node/with-cache:
           steps:
             - run: npm install
+      - run: pwd
+      - run: ls -all
       - persist_to_workspace:
           root: /home/circleci
           paths:
@@ -24,7 +26,9 @@ jobs:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: ~/project
+          at: /home/circleci
+      - run: pwd
+      - run: ls -all
       - run: npm test
       - coverage-reporter/send_report:
           coverage-reports: "coverage/lcov.info"
