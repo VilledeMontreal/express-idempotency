@@ -66,16 +66,36 @@ jobs:
 workflows:
   main-workflow:
     jobs:
-      - build
+      - build:
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              only: /.*/
       - test:
           requires:
             - build
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              only: /.*/
       - package:
           requires:
             - test
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              ignore: /.*/
       - registry-config:
           requires:
             - package
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              ignore: /.*/
       - deploy:
           requires:
             - registry-config
