@@ -17,9 +17,9 @@ jobs:
           steps:
             - run: npm install
       - persist_to_workspace:
-          root: ~/
+          root: /home/circleci
           paths:
-            - project
+            - project/*
   test:
     <<: *defaults
     steps:
@@ -33,35 +33,35 @@ jobs:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: ~/project
+          at: /home/circleci
       - run: npm run compile
       - persist_to_workspace:
-          root: ~/
+          root: /home/circleci
           paths:
             - project/dist
   registry-config:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: ~/project
+          at: /home/circleci
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
       - persist_to_workspace:
-          root: ~/
+          root: /home/circleci
           paths:
             - project/.npmrc
   deploy:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: ~/project
+          at: /home/circleci
       - run: npm publish
   deploy-rc:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: ~/project
+          at: /home/circleci
       - run: npm publish --tag rc
 workflows:
   main-workflow:
