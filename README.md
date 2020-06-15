@@ -34,12 +34,20 @@ For examples, check the `examples` folder.
 Install the dependency.
 
 ```
-$ npm install @villedemontreal/idempotency-express
+$ npm install express-idempotency
 ```
 
 Integrate the middleware in your Express initialization.
 
 ```javascript
+// Javascript
+const idempotency = require('express-idempotency');
+// ...express initialization
+app.post('*', idempotency.idempotency());
+
+// Typescript
+import { idempotency } from 'express-idempotency';
+// ...express initialization
 app.post('*', idempotency());
 ```
 
@@ -180,12 +188,20 @@ Pour des exemples, voir le répertoire `examples`.
 Installation de la dépendance.
 
 ```
-$ npm install @villedemontreal/idempotency-express
+$ npm install express-idempotency
 ```
 
 Intégrer le middleware dans l'initialisation de votre application Express.
 
 ```javascript
+// Javascript
+const idempotency = require('express-idempotency');
+// ...initialisation de Express
+app.post('*', idempotency.idempotency());
+
+// Typescript
+import { idempotency } from 'express-idempotency';
+// ...initialisation de Express
 app.post('*', idempotency());
 ```
 
