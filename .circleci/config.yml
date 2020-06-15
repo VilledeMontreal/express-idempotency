@@ -1,0 +1,114 @@
+# .circleci/config.yml
+defaults: &defaults
+  executor:
+    name: node/default
+  working_directory: ~/project
+
+version: 2.1
+orbs:
+  node: circleci/node@1.1.6
+  coverage-reporter: codacy/coverage-reporter@10.0.3
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - node/with-cache:
+          steps:
+            - run: npm install
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - project/*
+  test:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run: npm test
+      - coverage-reporter/send_report:
+          coverage-reports: "coverage/lcov.info"
+          project-token: ${CODACY_PROJECT_TOKEN}
+  package:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run: npm run compile
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - project/dist
+  registry-config:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - project/.npmrc
+  deploy:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run: npm publish --access public
+  deploy-rc:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run: npm publish --tag rc --access public
+workflows:
+  main-workflow:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              only: /.*/
+      - test:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              only: /.*/
+      - package:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              ignore: /.*/
+      - registry-config:
+          requires:
+            - package
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              ignore: /.*/
+      - deploy:
+          requires:
+            - registry-config
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d+/
+            branches:
+              ignore: /.*/
+      - deploy-rc:
+          requires:
+            - registry-config
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d+-{1}.*/
+            branches:
+              ignore: /.*/

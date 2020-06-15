@@ -1,0 +1,6 @@
+---
+exclude_paths:
+    - '**.md'
+    - '**/*.test.ts'
+    - 'examples/**'
+    - '**.json'

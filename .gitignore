@@ -1,0 +1,23 @@
+
+# Coverage reports
+coverage
+
+# Dependency directory
+node_modules
+bower_components
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Ignore built ts files
+dist/**/*
+
+# ignore yarn.lock
+yarn.lock
+
+# nyc
+.nyc_output
+
+# Test compilation
+.temp
