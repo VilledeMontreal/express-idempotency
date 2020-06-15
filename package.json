@@ -16,6 +16,12 @@
     "type": "git",
     "url": "git+https://github.com/VilledeMontreal/express-idempotency"
   },
+  "keywords": [
+    "express",
+    "middleware",
+    "idempotent",
+    "idempotency"
+  ],
   "author": "Ville de Montréal",
   "license": "MIT",
   "homepage": "https://github.com/VilledeMontreal/express-idempotencyy",
