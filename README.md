@@ -1,3 +1,5 @@
+Add idempotency to your express route, effortlessly, the way you want it.
+
 #### Production (master)
 
 [![CircleCI](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/master.svg?style=shield)](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/master) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/958bd19185f44fcda617a15fb6a72c1d?branch=master)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade&branch=master)
