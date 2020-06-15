@@ -1,6 +1,6 @@
 {
-  "name": "@villedemontreal/express-idempotency",
-  "version": "1.0.0",
+  "name": "express-idempotency",
+  "version": "1.0.0-rc.1",
   "description": "",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
