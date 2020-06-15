@@ -56,13 +56,13 @@ jobs:
     steps:
       - attach_workspace:
           at: /home/circleci
-      - run: npm publish
+      - run: npm publish --access public
   deploy-rc:
     <<: *defaults
     steps:
       - attach_workspace:
           at: /home/circleci
-      - run: npm publish --tag rc
+      - run: npm publish --tag rc --access public
 workflows:
   main-workflow:
     jobs:
