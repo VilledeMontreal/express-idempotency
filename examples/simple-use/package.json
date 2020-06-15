@@ -1,5 +1,5 @@
 {
-  "name": "@villemontreal/express-idempotency-example",
+  "name": "express-idempotency-example",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@villemontreal/express-idempotency": "1.0.0",
+    "express-idempotency": "1.0.2",
     "express": "^4.17.1"
   }
 }
