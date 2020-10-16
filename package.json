@@ -1,6 +1,6 @@
 {
   "name": "express-idempotency",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -24,10 +24,10 @@
   ],
   "author": "Ville de Montréal",
   "license": "MIT",
-  "homepage": "https://github.com/VilledeMontreal/express-idempotencyy",
+  "homepage": "https://github.com/VilledeMontreal/express-idempotency",
   "devDependencies": {
-    "@commitlint/cli": "^8.3.5",
-    "@commitlint/config-conventional": "^8.3.4",
+    "@commitlint/cli": "11.0.0",
+    "@commitlint/config-conventional": "^11.0.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/chai": "^4.2.11",
     "@types/deep-equal": "^1.0.1",
