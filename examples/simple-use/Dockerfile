@@ -11,7 +11,8 @@ RUN npm install && npm run compile && npm link
 
 # Installation of package to run the application
 WORKDIR /usr/src/app/examples/simple-use
-RUN npm link "express-idempotency" && npm install
+
+RUN npm link "express-idempotency" && npm install --production
 
 EXPOSE 8080
 

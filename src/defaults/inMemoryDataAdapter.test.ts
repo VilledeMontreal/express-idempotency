@@ -147,7 +147,10 @@ function createArrayOfIndempotencyResource(
     maxResource: number = faker.random.number(999)
 ): IdempotencyResource[] {
     const idempotencyResources: IdempotencyResource[] = [];
-    const resourceCount: number = faker.random.number(maxResource);
+    const resourceCount: number = faker.random.number({
+        min: 1,
+        max: maxResource,
+    });
     for (let i = 0; i < resourceCount; i++) {
         idempotencyResources.push(createFakeIdempotencyResource());
     }
