@@ -1,8 +1,8 @@
 ([Français](#Code-de-conduite-pour-le-projet-nom-du-projet))
 
-# Contributor Covenant Code of Conduct for the [`project_name`] project
+# Contributor Covenant Code of Conduct for the Express-Idempotency project
 
-Contributors to repositories hosted in [`project_name`] are expected to follow the Contributor Covenant Code of Conduct, and those working within City of Montreal are also expected to follow the Code of Conduct for the City of Montreal Employees 
+Contributors to repositories hosted in Express-Idempotency are expected to follow the Contributor Covenant Code of Conduct, and those working within City of Montreal are also expected to follow the Code of Conduct for the City of Montreal Employees
 
 ## Code of Conduct for the City Employees
 
@@ -16,19 +16,19 @@ In the interest of fostering an open and welcoming environment, we as contributo
 
 Examples of behavior that contributes to creating a positive environment include:
 
-* Using welcoming and inclusive language
-* Being respectful of differing viewpoints and experiences
-* Gracefully accepting constructive criticism
-* Focusing on what is best for the department
-* Showing empathy towards other members
+-   Using welcoming and inclusive language
+-   Being respectful of differing viewpoints and experiences
+-   Gracefully accepting constructive criticism
+-   Focusing on what is best for the department
+-   Showing empathy towards other members
 
 Examples of unacceptable behavior by participants include:
 
-* The use of sexualized language or imagery and unwelcome sexual attention or advances
-* Trolling, insulting/derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or electronic address, without explicit permission
-* Other conduct which could reasonably be considered inappropriate in a professional setting
+-   The use of sexualized language or imagery and unwelcome sexual attention or advances
+-   Trolling, insulting/derogatory comments, and personal or political attacks
+-   Public or private harassment
+-   Publishing others' private information, such as a physical or electronic address, without explicit permission
+-   Other conduct which could reasonably be considered inappropriate in a professional setting
 
 ## Our Responsibilities
 
@@ -56,26 +56,23 @@ Project maintainers who do not follow or enforce the Code of Conduct in good fai
 This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 1.4,
 available at [https://www.contributor-covenant.org/version/1/4/code-of-conduct.html](https://www.contributor-covenant.org/version/1/4/code-of-conduct.html)
 
-
 &nbsp;  
-&nbsp;  
+&nbsp;
 
 ---
 
 &nbsp;  
-&nbsp;  
-
+&nbsp;
 
 ([English](#Contributor-Covenant-Code-of-Conduct-for-the-project_name-project))
 
-# Code de conduite pour le projet [`nom du projet`]
+# Code de conduite pour le projet Express-Idempotency
 
-Les contributeurs aux dépôts hébergés dans [`nom du projet`] sont tenus de respecter le Code de conduite du Pacte des contributeurs, et ceux qui travaillent au sein de la Ville de Montréal sont également tenus de respecter le Code de conduite des employés de la Ville de Montréal.
+Les contributeurs aux dépôts hébergés dans Express-Idempotency sont tenus de respecter le Code de conduite du Pacte des contributeurs, et ceux qui travaillent au sein de la Ville de Montréal sont également tenus de respecter le Code de conduite des employés de la Ville de Montréal.
 
 ## Code de conduite des employés de la Ville de Montréal
 
 Le [Code de conduite des employés de la Ville de Montréal](http://ville.montreal.qc.ca/pls/portal/docs/page/intra_fr/media/documents/code_conduite_employes.pdf)
-
 
 ## Notre engagement
 
@@ -85,19 +82,19 @@ Dans le but de favoriser un environnement ouvert et accueillant, nous nous engag
 
 Exemples de comportements qui contribuent à créer un environnement positif incluent :
 
-* Utiliser un langage accueillant et inclusif
-* Être respectueux des différents points de vue et expériences
-* Accepter gracieusement les critiques constructives
-* Se concentrer sur ce qui est le mieux pour la communauté
-* Faire preuve d'empathie envers les autres membres de la communauté
+-   Utiliser un langage accueillant et inclusif
+-   Être respectueux des différents points de vue et expériences
+-   Accepter gracieusement les critiques constructives
+-   Se concentrer sur ce qui est le mieux pour la communauté
+-   Faire preuve d'empathie envers les autres membres de la communauté
 
 Voici des exemples de comportements inacceptables de la part des participants :
 
-* L'utilisation d'un langage ou d'images sexualisés et d'une attention sexuelle importunée, ou percées
-* Trollage, commentaires insultants ou méprisants, et attaques personnelles ou politiques
-* Harcèlement public ou privé
-* La publication d'informations privées d'autrui, telles que des informations physiques ou électroniques. adresse, sans autorisation explicite
-* Tout autre comportement qui pourrait raisonnablement être considéré comme inapproprié dans le cadre d'une enquête du contexte professionnel
+-   L'utilisation d'un langage ou d'images sexualisés et d'une attention sexuelle importunée, ou percées
+-   Trollage, commentaires insultants ou méprisants, et attaques personnelles ou politiques
+-   Harcèlement public ou privé
+-   La publication d'informations privées d'autrui, telles que des informations physiques ou électroniques. adresse, sans autorisation explicite
+-   Tout autre comportement qui pourrait raisonnablement être considéré comme inapproprié dans le cadre d'une enquête du contexte professionnel
 
 ## Nos responsabilités
 
