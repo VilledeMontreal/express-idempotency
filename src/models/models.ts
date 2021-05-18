@@ -2,7 +2,7 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-import { Request } from 'express'
+import { Request } from 'express';
 
 /**
  * Idempotency request.
@@ -66,7 +66,7 @@ export interface IIdempotencyResponseValidator {
 /**
  * Interface to implement for idempotency resource persistence.
  */
- export interface IIdempotencyDataAdapter {
+export interface IIdempotencyDataAdapter {
     /**
      * Find the resource for a specific idempotency key.
      * @param idempotencyKey Idempotency key

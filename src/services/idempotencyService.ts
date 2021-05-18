@@ -40,20 +40,22 @@ export class IdempotencyService {
      * @param options Options provided
      */
     constructor(options: IdempotencyOptions = {}) {
-
         // Default values or provided values
-        const idempotencyKeyHeader = options.idempotencyKeyHeader ?? IDEMPOTENCY_KEY_HEADER;
+        const idempotencyKeyHeader =
+            options.idempotencyKeyHeader ?? IDEMPOTENCY_KEY_HEADER;
         const dataAdapter = options.dataAdapter ?? new InMemoryDataAdapter();
-        const responseValidator = options.responseValidator ?? new SuccessfulResponseValidator();
-        const intentValidator = options.intentValidator ?? new DefaultIntentValidator();
+        const responseValidator =
+            options.responseValidator ?? new SuccessfulResponseValidator();
+        const intentValidator =
+            options.intentValidator ?? new DefaultIntentValidator();
 
         // Ensure that every propery has a value.
         this._options = {
             idempotencyKeyHeader,
             dataAdapter,
             responseValidator,
-            intentValidator
-        }
+            intentValidator,
+        };
     }
 
     /**
