@@ -2,54 +2,7 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-/**
- * Interface to implement for idempotency resource persistence.
- */
-export interface IIdempotencyDataAdapter {
-    /**
-     * Find the resource for a specific idempotency key.
-     * @param idempotencyKey Idempotency key
-     * @returns Idempotency resource
-     */
-    findByIdempotencyKey(idempotencyKey: string): Promise<IdempotencyResource>;
-
-    /**
-     * Create a idempotency resource.
-     * @param idempotencyResource Idempotency resource
-     */
-    create(idempotencyResource: IdempotencyResource): Promise<void>;
-
-    /**
-     * Update a idempotency resource.
-     * @param idempotencyResource Idempotency resource
-     */
-    update(idempotencyResource: IdempotencyResource): Promise<void>;
-
-    /**
-     * Delete a idempotency resource.
-     * @param idempotencyKey Resource to delete
-     */
-    delete(idempotencyKey: string): Promise<void>;
-}
-
-/**
- * Options available to configure the idempotency middleware.
- */
-// tslint:disable-next-line:interface-name
-export interface IdempotencyOptions {
-    // Specify the header to be used to retrieve the idempotency key.
-    // Default value is 'idempotency-key'.
-    idempotencyKeyHeader?: string;
-    // The data adapter used to store the resources.
-    // Default is the InMemoryDataAdapter.
-    dataAdapter?: IIdempotencyDataAdapter;
-    // Logic to indicate if response must be kept for idempotency
-    // Default is the SuccessfulResponseValidator.
-    responseValidator?: IIdempotencyResponseValidator;
-    // Validate the intent of the request
-    // Default is the DefaultIntentValidator.
-    intentValidator?: IIdempotencyIntentValidator;
-}
+import { Request } from 'express'
 
 /**
  * Idempotency request.
@@ -111,6 +64,55 @@ export interface IIdempotencyResponseValidator {
 }
 
 /**
+ * Interface to implement for idempotency resource persistence.
+ */
+ export interface IIdempotencyDataAdapter {
+    /**
+     * Find the resource for a specific idempotency key.
+     * @param idempotencyKey Idempotency key
+     * @returns Idempotency resource
+     */
+    findByIdempotencyKey(idempotencyKey: string): Promise<IdempotencyResource>;
+
+    /**
+     * Create a idempotency resource.
+     * @param idempotencyResource Idempotency resource
+     */
+    create(idempotencyResource: IdempotencyResource): Promise<void>;
+
+    /**
+     * Update a idempotency resource.
+     * @param idempotencyResource Idempotency resource
+     */
+    update(idempotencyResource: IdempotencyResource): Promise<void>;
+
+    /**
+     * Delete a idempotency resource.
+     * @param idempotencyKey Resource to delete
+     */
+    delete(idempotencyKey: string): Promise<void>;
+}
+
+/**
+ * Options available to configure the idempotency middleware.
+ */
+// tslint:disable-next-line:interface-name
+export interface IdempotencyOptions {
+    // Specify the header to be used to retrieve the idempotency key.
+    // Default value is 'idempotency-key'.
+    idempotencyKeyHeader?: string;
+    // The data adapter used to store the resources.
+    // Default is the InMemoryDataAdapter.
+    dataAdapter?: IIdempotencyDataAdapter;
+    // Logic to indicate if response must be kept for idempotency
+    // Default is the SuccessfulResponseValidator.
+    responseValidator?: IIdempotencyResponseValidator;
+    // Validate the intent of the request
+    // Default is the DefaultIntentValidator.
+    intentValidator?: IIdempotencyIntentValidator;
+}
+
+/**
  * Interface for intent validator implementation.
  * Used to check when a idempotency key is found, the intent of the request
  * is corresponding to the original request. This is to prevent idempotency key
@@ -123,7 +125,7 @@ export interface IIdempotencyIntentValidator {
      * @param idempotencyRequest orignal request which generate a idempotency resource
      */
     isValidIntent(
-        req: Express.Request,
+        req: Request,
         idempotencyRequest: IdempotencyRequest
     ): boolean;
 }
