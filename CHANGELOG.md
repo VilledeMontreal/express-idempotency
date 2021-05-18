@@ -2,6 +2,12 @@
 
 All notable changes to this library will be documented in this file.
 
+## 1.0.4
+
+-   Fix security issues
+-   Adjustment to packages
+-   Remove unnecessary files
+
 ## 1.0.3
 
 -   Fix issue with autobind-decorator which must be a runtime dependency ([issue #10](https://github.com/VilledeMontreal/express-idempotency/issues/10))
