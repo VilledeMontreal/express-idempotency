@@ -94,6 +94,24 @@ export interface IIdempotencyDataAdapter {
 }
 
 /**
+ * Interface for intent validator implementation.
+ * Used to check when a idempotency key is found, the intent of the request
+ * is corresponding to the original request. This is to prevent idempotency key
+ * to be use incorrectly.
+ */
+ export interface IIdempotencyIntentValidator {
+    /**
+     * Valid the intent of the request.
+     * @param req request to validate
+     * @param idempotencyRequest orignal request which generate a idempotency resource
+     */
+    isValidIntent(
+        req: Request,
+        idempotencyRequest: IdempotencyRequest
+    ): boolean;
+}
+
+/**
  * Options available to configure the idempotency middleware.
  */
 // tslint:disable-next-line:interface-name
@@ -110,22 +128,4 @@ export interface IdempotencyOptions {
     // Validate the intent of the request
     // Default is the DefaultIntentValidator.
     intentValidator?: IIdempotencyIntentValidator;
-}
-
-/**
- * Interface for intent validator implementation.
- * Used to check when a idempotency key is found, the intent of the request
- * is corresponding to the original request. This is to prevent idempotency key
- * to be use incorrectly.
- */
-export interface IIdempotencyIntentValidator {
-    /**
-     * Valid the intent of the request.
-     * @param req request to validate
-     * @param idempotencyRequest orignal request which generate a idempotency resource
-     */
-    isValidIntent(
-        req: Request,
-        idempotencyRequest: IdempotencyRequest
-    ): boolean;
 }
