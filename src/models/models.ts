@@ -99,7 +99,7 @@ export interface IIdempotencyDataAdapter {
  * is corresponding to the original request. This is to prevent idempotency key
  * to be use incorrectly.
  */
- export interface IIdempotencyIntentValidator {
+export interface IIdempotencyIntentValidator {
     /**
      * Valid the intent of the request.
      * @param req request to validate
