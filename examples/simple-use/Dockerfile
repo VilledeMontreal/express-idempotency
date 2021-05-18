@@ -7,7 +7,7 @@ WORKDIR /usr/src/app
 COPY . .
 
 # Compile the library and link the library
-RUN npm install && npm run compile && npm link
+RUN npm install && npm run compile && npm prune --production && npm link
 
 # Installation of package to run the application
 WORKDIR /usr/src/app/examples/simple-use

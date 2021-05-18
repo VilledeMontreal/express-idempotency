@@ -1,6 +1,6 @@
 {
   "name": "express-idempotency",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -26,12 +26,14 @@
   "license": "MIT",
   "homepage": "https://github.com/VilledeMontreal/express-idempotency",
   "devDependencies": {
-    "@commitlint/cli": "11.0.0",
+    "@commitlint/cli": "^11.0.0",
     "@commitlint/config-conventional": "^11.0.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/chai": "^4.2.11",
     "@types/deep-equal": "^1.0.1",
-    "@types/express": "^4.17.6",
+    "@types/express": "^4.17.11",
+    "@types/express-serve-static-core": "4.17.19",
+    "@types/serve-static": "1.13.9",
     "@types/faker": "^4.1.12",
     "@types/mocha": "^7.0.2",
     "@types/sinon": "^9.0.4",
@@ -55,9 +57,9 @@
     "dist"
   ],
   "dependencies": {
+    "autobind-decorator": "^2.4.0",
     "deep-equal": "^2.0.3",
-    "http-status-codes": "^1.4.0",
-    "autobind-decorator": "^2.4.0"
+    "http-status-codes": "^1.4.0"
   },
   "husky": {
     "hooks": {
