@@ -72,7 +72,9 @@ export interface IIdempotencyDataAdapter {
      * @param idempotencyKey Idempotency key
      * @returns Idempotency resource
      */
-    findByIdempotencyKey(idempotencyKey: string): Promise<IdempotencyResource>;
+    findByIdempotencyKey(
+        idempotencyKey: string
+    ): Promise<IdempotencyResource | null>;
 
     /**
      * Create a idempotency resource.
