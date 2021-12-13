@@ -16,7 +16,9 @@ app.all('/', function (req, res) {
     }
 
     // Return the current date and time
-    res.send(new Date().toISOString());
+    res.json({
+        value: new Date().toISOString()
+    });
 });
 
 app.listen(8080, function () {

@@ -292,7 +292,8 @@ export class IdempotencyService {
         body: any
     ): IdempotencyResponse {
         const headerWhitelist: string[] = ['content-type'];
-        const preliminaryHeaders = (res as InternalExpressResponse)._headers;
+        const preliminaryHeaders = res.getHeaders();
+        
         // Keeps only whitelisted headers
         const headers = Object.keys(preliminaryHeaders)
             .filter((key) => headerWhitelist.includes(key))
