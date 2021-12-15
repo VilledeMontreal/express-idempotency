@@ -1,4 +1,4 @@
-FROM node:10
+FROM node:16
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -7,16 +7,18 @@ WORKDIR /usr/src/app
 COPY . .
 
 # Compile the library and link the library
-RUN npm install && npm run compile && npm prune --production && npm link
+RUN rm -rf node_modules dist && npm install && npm run compile && npm prune --production && npm link
 
 # Installation of package to run the application
 WORKDIR /usr/src/app/examples/simple-use
 
-RUN npm link "express-idempotency" && npm install --production
+RUN rm -rf node_modules && npm link "express-idempotency" && npm install --production
+# Force use of local library, npm link is not always working for some reasons
+RUN npm install ../../.
 
 EXPOSE 8080
 
 # Run the application
 WORKDIR /usr/src/app
-CMD ["node", "./examples/simple-use/src/index.js"]
+CMD ["node", "--trace-deprecation", "./examples/simple-use/src/index.js"]
 

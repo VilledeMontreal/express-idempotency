@@ -22,11 +22,6 @@ const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
 const HIT_HEADER = 'x-hit';
 const HIT_VALUE = 'true';
 
-// tslint:disable-next-line:interface-name
-interface InternalExpressResponse extends express.Response {
-    _headers: any;
-}
-
 /**
  * This class represent the idempotency service.
  * It contains all the logic.
@@ -292,7 +287,8 @@ export class IdempotencyService {
         body: any
     ): IdempotencyResponse {
         const headerWhitelist: string[] = ['content-type'];
-        const preliminaryHeaders = (res as InternalExpressResponse)._headers;
+        const preliminaryHeaders = res.getHeaders();
+
         // Keeps only whitelisted headers
         const headers = Object.keys(preliminaryHeaders)
             .filter((key) => headerWhitelist.includes(key))
