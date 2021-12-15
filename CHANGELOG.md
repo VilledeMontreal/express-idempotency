@@ -2,6 +2,11 @@
 
 All notable changes to this library will be documented in this file.
 
+## 1.0.5
+
+-   Fix: Use of express public api to retrieve request headers ([issue #21](https://github.com/VilledeMontreal/express-idempotency/issues/21))
+-   Fix: Add null to possible return value for data adapters when idempotency resource not found ([Issue #22](https://github.com/VilledeMontreal/express-idempotency/issues/22))
+
 ## 1.0.4
 
 -   Fix security issues

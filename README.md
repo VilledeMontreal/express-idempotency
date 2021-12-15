@@ -112,7 +112,7 @@ The data adapter allows to persist cached response for a idempotency key. The de
 
 You can create your own data adapter by implementing the `IIdempotencyDataAdapter` interface but there is already some implementation ready.
 
--   Mongo Data Adapter
+-   [Mongo Data Adapter](https://www.npmjs.com/package/express-idempotency-mongo-adapter)
 
 #### Response validator
 
@@ -266,7 +266,7 @@ L'adapteur de données permet de persister l'information relatif à la clé d'id
 
 Vous pouvez créer votre propre adapteur de données par l'implémentation de l'interface `IIdempotencyDataAdapter`. Les implémentations connues sont les suivantes :
 
--   Mongo Data Adapter
+-   [Mongo Data Adapter](https://www.npmjs.com/package/express-idempotency-mongo-adapter)
 
 #### Validateur de réponse
 
