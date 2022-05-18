@@ -2,6 +2,10 @@
 
 All notable changes to this library will be documented in this file.
 
+## 1.0.6
+
+-   Fix: Remove writeHeadHook promise to persiste the response in case of a client timeout occurs ([issue #26](https://github.com/VilledeMontreal/express-idempotency/issues/26))
+
 ## 1.0.5
 
 -   Fix: Use of express public api to retrieve request headers ([issue #21](https://github.com/VilledeMontreal/express-idempotency/issues/21))
