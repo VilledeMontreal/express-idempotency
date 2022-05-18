@@ -6,7 +6,6 @@ import { boundClass } from 'autobind-decorator';
 import { DefaultIntentValidator } from './../defaults/defaultIntentValidator';
 import * as express from 'express';
 import * as HttpStatus from 'http-status-codes';
-import { OutgoingHttpHeaders } from 'http';
 import { InMemoryDataAdapter } from './../defaults/inMemoryDataAdapter';
 import { SuccessfulResponseValidator } from './../defaults/successfulResponseValidator';
 import {
@@ -186,19 +185,16 @@ export class IdempotencyService {
         res: express.Response,
         resource: IdempotencyResource
     ): void {
-        // Wait for all promise to come back. To ensure performance,
+        // Wait for send() to be called to build the Response. To ensure performance,
         // fire and forget.
         const idempotencyKey: string = resource.idempotencyKey;
-        Promise.all<[number, OutgoingHttpHeaders], any>([
-            this.writeHeadHook(res),
-            this.sendHook(res),
-        ])
-            .then(async ([[statusCode], body]) => {
+        this.sendHook(res)
+            .then(async (body) => {
                 // Receive everything required to assemble a idempotency response.
                 // logger.info(headers);
                 const response = this.buildIdempotencyResponse(
                     res,
-                    statusCode,
+                    res.statusCode,
                     body
                 );
 
@@ -236,28 +232,6 @@ export class IdempotencyService {
                     );
                 }
             });
-    }
-
-    /**
-     * Hook into writeHead function of response to receive the status code
-     * and the headers.
-     * @param res
-     */
-    private writeHeadHook(
-        res: express.Response
-    ): Promise<[number, OutgoingHttpHeaders]> {
-        return new Promise<[number, OutgoingHttpHeaders]>((resolve) => {
-            const defaultWriteHead = res.writeHead.bind(res);
-            // @ts-ignore
-            res.writeHead = (
-                statusCode: number,
-                reasonPhrase?: any,
-                headers?: any
-            ) => {
-                resolve([statusCode, headers]);
-                defaultWriteHead(statusCode, reasonPhrase, headers);
-            };
-        });
     }
 
     /**

@@ -59,8 +59,7 @@ describe('Idempotency service', () => {
         );
         assert.isTrue(firstNextSpy.called);
         const value = faker.random.word();
-        // Simulate route. When calling res.json, it will call eventually writeHead and send.
-        firstRes.writeHead(200, null, { 'content-type': 'application/json' });
+        // Simulate route. When calling res.json, it will call eventually send.
         firstRes.send('test');
 
         // Intermediate request, which should generate a conflict
@@ -168,7 +167,6 @@ describe('Idempotency service', () => {
             res,
             sinon.mock()
         );
-        res.writeHead(200);
         res.send('something');
 
         // Be sure that there is no hit from the previous request
@@ -198,7 +196,6 @@ describe('Idempotency service', () => {
                 res,
                 sinon.mock()
             );
-            res.writeHead(200);
             res.send('something');
             await wait(1);
             assert.fail('Expected error to be thrown');
