@@ -13,8 +13,12 @@ describe('Idempotency middleware', () => {
                 'Expecting error to be thrown because the middleware has not been called.'
             );
         } catch (err) {
-            assert.equal(err?.message, ERROR_MSG_NOT_INITIALIZED);
-            assert.ok(err);
+            if (err instanceof Error) {
+                assert.equal(err.message, ERROR_MSG_NOT_INITIALIZED);
+                assert.ok(err);
+            } else {
+                assert.fail('Wrong error type');
+            }
         }
     });
 
