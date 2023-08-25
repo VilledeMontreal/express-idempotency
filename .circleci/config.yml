@@ -6,8 +6,8 @@ defaults: &defaults
 
 version: 2.1
 orbs:
-  node: circleci/node@1.1.6
-  coverage-reporter: codacy/coverage-reporter@10.0.3
+  node: circleci/node@5.1.0
+  coverage-reporter: codacy/coverage-reporter@13.13.7
 jobs:
   build:
     <<: *defaults
