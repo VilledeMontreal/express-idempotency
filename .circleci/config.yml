@@ -13,9 +13,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - node/with-cache:
-          steps:
-            - run: npm install
+      - node/install-packages
       - persist_to_workspace:
           root: /home/circleci
           paths:
