@@ -2,7 +2,7 @@ import { DefaultIntentValidator } from './../defaults/defaultIntentValidator';
 import { InMemoryDataAdapter } from './../defaults/inMemoryDataAdapter';
 import { SuccessfulResponseValidator } from './../defaults/successfulResponseValidator';
 import { assert } from 'chai';
-import * as faker from 'faker';
+import { faker } from '@faker-js/faker';
 import {
     IdempotencyResource,
     IdempotencyRequest,
@@ -58,7 +58,6 @@ describe('Idempotency service', () => {
             firstNextSpy
         );
         assert.isTrue(firstNextSpy.called);
-        const value = faker.random.word();
         // Simulate route. When calling res.json, it will call eventually send.
         firstRes.send('test');
 
@@ -121,7 +120,7 @@ describe('Idempotency service', () => {
     });
 
     it('indicates misuse of the idempotency key', async () => {
-        const idempotencyKey = faker.random.uuid();
+        const idempotencyKey = faker.string.uuid();
         const req1 = httpMocks.createRequest({
             url: 'https://something',
             method: 'POST',
@@ -220,9 +219,9 @@ describe('Idempotency service', () => {
 function createRequest(): express.Request {
     return httpMocks.createRequest({
         url: faker.internet.url(),
-        method: faker.random.arrayElement(['GET', 'POST', 'PUT', 'DELETE']),
+        method: faker.helpers.arrayElement(['GET', 'POST', 'PUT', 'DELETE']),
         headers: {
-            'idempotency-key': faker.random.uuid(),
+            'idempotency-key': faker.string.uuid(),
         },
     });
 }

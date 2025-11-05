@@ -71,9 +71,10 @@ export class IdempotencyService {
             // If there is already a resource associated to this idempotency key,
             // there will be 2 scenarios: the previous request is still in progress or there is
             // a response available.
-            let resource = await this._options.dataAdapter.findByIdempotencyKey(
-                idempotencyKey
-            );
+            let resource =
+                await this._options.dataAdapter.findByIdempotencyKey(
+                    idempotencyKey
+                );
             if (resource) {
                 // Indicate idempotency exists
                 req.headers[HIT_HEADER] = HIT_VALUE;
@@ -226,7 +227,7 @@ export class IdempotencyService {
                         'Something went wrong, try to remove idempotency...'
                     );
                     await this._options.dataAdapter.delete(idempotencyKey);
-                } catch (err) {
+                } catch {
                     console.log(
                         'Error while removing idempotency key during failing hook.'
                     );

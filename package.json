@@ -1,71 +1,68 @@
 {
-    "name": "express-idempotency",
-    "version": "1.0.6",
-    "description": "",
-    "main": "dist/index.js",
-    "typings": "dist/index.d.ts",
-    "scripts": {
-        "compile": "./node_modules/.bin/tsc --build tsconfig.dist.json",
-        "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha",
-        "lint": "./node_modules/.bin/eslint ./src --ext .ts,.tsx",
-        "lint:fix": "./node_modules/.bin/eslint ./src --ext .ts,.tsx --fix",
-        "prettier": "./node_modules/.bin/prettier --check ./src",
-        "prettier:fix": "./node_modules/.bin/prettier --write ./src"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/VilledeMontreal/express-idempotency"
-    },
-    "keywords": [
-        "express",
-        "middleware",
-        "idempotent",
-        "idempotency"
-    ],
-    "author": "Ville de Montréal",
-    "license": "MIT",
-    "homepage": "https://github.com/VilledeMontreal/express-idempotency",
-    "devDependencies": {
-        "@commitlint/cli": "^17.7.1",
-        "@commitlint/config-conventional": "^11.0.0",
-        "@istanbuljs/nyc-config-typescript": "^1.0.1",
-        "@types/chai": "^4.2.11",
-        "@types/deep-equal": "^1.0.1",
-        "@types/express": "^4.17.13",
-        "@types/express-serve-static-core": "^4.17.26",
-        "@types/faker": "^4.1.12",
-        "@types/mocha": "^7.0.2",
-        "@types/serve-static": "1.13.9",
-        "@types/sinon": "^9.0.4",
-        "@typescript-eslint/eslint-plugin": "^6.4.1",
-        "@typescript-eslint/parser": "^6.4.1",
-        "chai": "^4.2.0",
-        "eslint": "^7.2.0",
-        "eslint-config-prettier": "^6.11.0",
-        "faker": "^4.1.0",
-        "husky": "^4.2.5",
-        "mocha": "^10.2.0",
-        "node-mocks-http": "^1.8.1",
-        "nyc": "^15.0.1",
-        "prettier": "2.0.5",
-        "sinon": "^9.0.2",
-        "source-map-support": "^0.5.19",
-        "ts-node": "^8.10.2",
-        "typescript": "^5.2.2"
-    },
-    "files": [
-        "dist"
-    ],
-    "dependencies": {
-        "autobind-decorator": "^2.4.0",
-        "deep-equal": "^2.0.3",
-        "http-status-codes": "^1.4.0"
-    },
-    "husky": {
-        "hooks": {
-            "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
-            "pre-commit": "",
-            "pre-push": "npm run prettier && npm run lint && npm test"
-        }
-    }
+  "name": "express-idempotency",
+  "version": "2.0.0",
+  "description": "Idempotency middleware for Express - Add idempotency to your express routes effortlessly",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "compile": "./node_modules/.bin/tsc --build tsconfig.dist.json",
+    "test": "./node_modules/.bin/tsc --build tsconfig.test.json && nyc mocha",
+    "lint": "./node_modules/.bin/eslint ./src --ext .ts,.tsx",
+    "lint:fix": "./node_modules/.bin/eslint ./src --ext .ts,.tsx --fix",
+    "prettier": "./node_modules/.bin/prettier --check ./src",
+    "prettier:fix": "./node_modules/.bin/prettier --write ./src",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VilledeMontreal/express-idempotency"
+  },
+  "keywords": [
+    "express",
+    "middleware",
+    "idempotent",
+    "idempotency"
+  ],
+  "author": "Ville de Montréal",
+  "license": "MIT",
+  "homepage": "https://github.com/VilledeMontreal/express-idempotency",
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@faker-js/faker": "^10.1.0",
+    "@istanbuljs/nyc-config-typescript": "^1.0.1",
+    "@types/chai": "^5.2.3",
+    "@types/deep-equal": "^1.0.4",
+    "@types/express": "^5.0.5",
+    "@types/express-serve-static-core": "^5.1.0",
+    "@types/mocha": "^10.0.10",
+    "@types/serve-static": "^2.2.0",
+    "@types/sinon": "^17.0.4",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "chai": "^6.2.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "mocha": "^11.7.5",
+    "node-mocks-http": "^1.17.2",
+    "nyc": "^17.1.0",
+    "prettier": "^3.6.2",
+    "sinon": "^21.0.0",
+    "source-map-support": "^0.5.19",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "autobind-decorator": "^2.4.0",
+    "deep-equal": "^2.0.3",
+    "http-status-codes": "^2.3.0"
+  }
 }
