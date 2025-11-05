@@ -31,10 +31,18 @@ For examples, check the `examples` folder.
 
 ## Getting started
 
+### Requirements
+
+- **Node.js** >= 18.0.0
+- **TypeScript** >= 5.0.0 (if using TypeScript)
+- **npm** >= 9.0.0
+
+### Installation
+
 Install the dependency.
 
-```
-$ npm install express-idempotency
+```bash
+npm install express-idempotency
 ```
 
 Integrate the middleware in your Express initialization.

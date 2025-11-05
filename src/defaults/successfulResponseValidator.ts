@@ -12,7 +12,8 @@ import {
  * Check for successful responses.
  */
 export class SuccessfulResponseValidator
-    implements IIdempotencyResponseValidator {
+    implements IIdempotencyResponseValidator
+{
     /**
      * Check if the response is in the 2XX status code range and if it is, persist it.
      * @param idempotencyResponse Response to validate

@@ -1,6 +1,6 @@
 import { InMemoryDataAdapter } from './inMemoryDataAdapter';
 import { assert } from 'chai';
-import * as faker from 'faker';
+import { faker } from '@faker-js/faker';
 import {
     IdempotencyResource,
     IdempotencyRequest,
@@ -23,7 +23,7 @@ describe('In memory data adapter', () => {
         }
 
         // Select a single resource and try to find it
-        const index: number = faker.random.number({
+        const index: number = faker.number.int({
             min: 0,
             max: idempotencyResources.length - 1,
         });
@@ -62,7 +62,7 @@ describe('In memory data adapter', () => {
         }
 
         // Select a single resource and try to find it
-        const index: number = faker.random.number({
+        const index: number = faker.number.int({
             min: 0,
             max: idempotencyResources.length - 1,
         });
@@ -95,7 +95,7 @@ describe('In memory data adapter', () => {
         }
 
         // Select a single resource and try to find it
-        const index: number = faker.random.number({
+        const index: number = faker.number.int({
             min: 0,
             max: idempotencyResources.length - 1,
         });
@@ -122,8 +122,8 @@ describe('In memory data adapter', () => {
 function createFakeIdempotencyRequest(): IdempotencyRequest {
     return {
         url: faker.internet.url(),
-        method: faker.random.arrayElement(['GET', 'POST', 'PUT', 'DELETE']),
-        body: faker.random.objectElement(),
+        method: faker.helpers.arrayElement(['GET', 'POST', 'PUT', 'DELETE']),
+        body: {},
         headers: {},
         query: {},
     };
@@ -131,23 +131,25 @@ function createFakeIdempotencyRequest(): IdempotencyRequest {
 
 function createFakeIdempotencyResponse(): IdempotencyResponse {
     const idempotencyResponse = new IdempotencyResponse();
-    idempotencyResponse.statusCode = faker.random.arrayElement([200, 201, 204]);
-    idempotencyResponse.body = faker.random.objectElement();
+    idempotencyResponse.statusCode = faker.helpers.arrayElement([
+        200, 201, 204,
+    ]);
+    idempotencyResponse.body = {};
     return idempotencyResponse;
 }
 
 function createFakeIdempotencyResource(): IdempotencyResource {
     return {
-        idempotencyKey: faker.random.uuid(),
+        idempotencyKey: faker.string.uuid(),
         request: createFakeIdempotencyRequest(),
     };
 }
 
 function createArrayOfIndempotencyResource(
-    maxResource: number = faker.random.number(999)
+    maxResource: number = faker.number.int(999)
 ): IdempotencyResource[] {
     const idempotencyResources: IdempotencyResource[] = [];
-    const resourceCount: number = faker.random.number({
+    const resourceCount: number = faker.number.int({
         min: 1,
         max: maxResource,
     });
