@@ -21,6 +21,8 @@ Librairie npm open source (`express-idempotency`, MIT) : middleware Express qui 
 
 Hooks Husky : `pre-commit` est vide par design ; `pre-push` exécute `npm run prettier && npm run lint && npm test` — tout doit passer avant un push. `commit-msg` impose Conventional Commits (commitlint).
 
+**Piège** : le typecheck de `npm test` est incrémental (`tsc --build` + `.temp/*.tsbuildinfo`) — après un changement de dépendances, valider avec `./node_modules/.bin/tsc --build tsconfig.test.json --force` pour reproduire le typecheck à froid de la CI (un `npm test` local peut passer alors que la CI casse).
+
 ## Release
 
 CircleCI publie sur npm uniquement sur tag git : `vX.Y.Z` → publication normale, `vX.Y.Z-<suffixe>` → publication avec dist-tag `rc`. Les tests tournent sur toutes les branches ; la couverture (lcov) part vers Codacy. Branches : `master` (production) et `develop`.
@@ -63,9 +65,8 @@ Six fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barre
 
 ## Git et PRs
 
-- **Identité git locale** : `Philippe LAWSON <phil.lawson9@gmail.com>` (compte GitHub `lawp09`), configurée en local dans ce repo — ne pas committer avec l'identité globale `@montreal.ca`.
 - **DCO obligatoire** : toujours committer avec `git commit -s` (`Signed-off-by` correspondant à l'auteur). Le check DCO des PRs échoue sinon ; rattrapage : `git commit --amend -s --no-edit` puis force-push.
-- **Workflow fork** : `origin` = fork `lawp09`, `upstream` = `VilledeMontreal`. Brancher depuis `upstream/master`, pousser la branche sur le fork, ouvrir la PR vers `master` d'upstream.
+- **Workflow fork** : `origin` = fork, `upstream` = `VilledeMontreal`. Brancher depuis `upstream/master`, pousser la branche sur le fork, ouvrir la PR vers `master` d'upstream.
 
 ## Conventions du repo
 
