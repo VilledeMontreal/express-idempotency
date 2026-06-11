@@ -50,7 +50,7 @@
     "husky": "^9.1.7",
     "mocha": "^11.7.5",
     "node-mocks-http": "^1.17.2",
-    "nyc": "^17.1.0",
+    "nyc": "^18.0.0",
     "prettier": "^3.6.2",
     "sinon": "^21.0.0",
     "source-map-support": "^0.5.19",
