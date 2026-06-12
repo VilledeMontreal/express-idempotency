@@ -106,6 +106,10 @@ app.post(
         responseValidator,
         // Logic to detect misuse of the idempotency key
         intentValidator,
+        // Maximum processing time (ms) before an in-progress resource is
+        // considered orphaned and can be taken over by a retry.
+        // Disabled when absent or <= 0.
+        processingTimeout,
     })
 );
 ```
@@ -153,6 +157,30 @@ export class CustomIntentValidator implements IIdempotencyIntentValidator {
     return req.url === idempotencyRequest.url;
   }
 ```
+
+#### Processing timeout
+
+By default, if a request starts processing but never completes (crash, OOM, rollout, or a response sent via `res.end()` / streaming / `sendFile` that bypasses `res.send`), the in-progress resource remains locked and subsequent retries receive a permanent `409 Conflict` until the adapter's TTL expires.
+
+The `processingTimeout` option (in milliseconds) enables a lease mechanism: if a retry arrives after the timeout has elapsed since the resource was created, the middleware considers the original request orphaned and takes over processing.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        dataAdapter,
+        // Allow a retry to take over after 30 seconds
+        processingTimeout: 30_000,
+    })
+);
+```
+
+**Requirements and caveats:**
+
+- The data adapter must persist and return the `createdAt` field of `IdempotencyResource`. Without it the feature is silently inert (safe degradation to the v2.0.0 behaviour).
+- Choose a value at least 2× the worst-case processing duration to avoid false takeovers.
+- Due to the check-then-act nature of the takeover, at-least-once delivery semantics apply when the timeout is reached. If two retries race at expiry, one will win and the other will fall back to a `409`.
+- When a response is sent via `res.end()`, streaming, or `sendFile` (bypassing `res.send`), the middleware cannot capture the body. It automatically deletes the resource so the next retry is reprocessed rather than permanently blocked.
 
 ## License
 
@@ -260,6 +288,10 @@ app.post(
         responseValidator,
         // Préciser la logique à appliquer pour s'assurer de la bonne utilisation de la clé d'idempotence.
         intentValidator,
+        // Durée maximale de traitement (ms) avant qu'une ressource en cours soit
+        // considérée orpheline et reprise par une nouvelle tentative.
+        // Désactivé si absent ou <= 0.
+        processingTimeout,
     })
 );
 ```
@@ -307,6 +339,30 @@ export class CustomIntentValidator implements IIdempotencyIntentValidator {
     return req.url === idempotencyRequest.url;
   }
 ```
+
+#### Délai de traitement
+
+Par défaut, si une requête démarre son traitement mais ne se termine jamais (crash, OOM, redéploiement, ou réponse envoyée via `res.end()` / streaming / `sendFile` sans passer par `res.send`), la ressource en cours reste verrouillée et les nouvelles tentatives reçoivent un `409 Conflict` permanent jusqu'à l'expiration du TTL de l'adapteur.
+
+L'option `processingTimeout` (en millisecondes) active un mécanisme de bail : si une nouvelle tentative arrive après l'écoulement du délai depuis la création de la ressource, le middleware considère la requête originale comme orpheline et reprend le traitement.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        dataAdapter,
+        // Permettre à une nouvelle tentative de reprendre après 30 secondes
+        processingTimeout: 30_000,
+    })
+);
+```
+
+**Prérequis et mises en garde :**
+
+- L'adapteur de données doit persister et retourner le champ `createdAt` de `IdempotencyResource`. Sans cela, la fonctionnalité est silencieusement inerte (dégradation propre vers le comportement v2.0.0).
+- Choisir une valeur d'au moins 2× la durée de traitement maximale pour éviter les reprises prématurées.
+- En raison de la nature « vérifier puis agir » de la reprise, une sémantique de livraison « au moins une fois » s'applique lorsque le délai est atteint. Si deux tentatives entrent en concurrence à l'expiration, l'une gagnera et l'autre recevra un `409`.
+- Lorsqu'une réponse est envoyée via `res.end()`, le streaming ou `sendFile` (sans passer par `res.send`), le middleware ne peut pas capturer le corps. Il supprime automatiquement la ressource afin que la prochaine tentative soit retraitée plutôt que bloquée de façon permanente.
 
 ## Contribuer
 
