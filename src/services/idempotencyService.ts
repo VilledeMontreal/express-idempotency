@@ -218,7 +218,39 @@ export class IdempotencyService {
         // Wait for send() to be called to build the Response. To ensure performance,
         // fire and forget.
         const idempotencyKey: string = resource.idempotencyKey;
-        this.sendHook(res)
+
+        // Tracks whether res.send was called. Set synchronously inside the
+        // monkey-patched send so the finish handler can distinguish a normal
+        // send path from a bypass (res.end / streaming / sendFile).
+        let settled = false;
+
+        // Cleanup hook: fires when the HTTP response is fully flushed. If
+        // res.send was never called (settled is false), the body was not
+        // captured — delete the resource so the next retry is processed
+        // fresh instead of receiving a permanent 409.
+        res.once('finish', () => {
+            if (settled) {
+                return;
+            }
+            console.warn(
+                'Response sent without res.send — idempotency resource will be deleted.'
+            );
+            this.canStillPersist(resource)
+                .then(async (canPersist) => {
+                    if (canPersist) {
+                        await this._options.dataAdapter.delete(idempotencyKey);
+                    }
+                })
+                .catch(() => {
+                    console.warn(
+                        'Error while deleting idempotency resource after finish without send.'
+                    );
+                });
+        });
+
+        this.sendHook(res, () => {
+            settled = true;
+        })
             .then(async (body) => {
                 // Receive everything required to assemble a idempotency response.
                 // logger.info(headers);
@@ -276,13 +308,20 @@ export class IdempotencyService {
 
     /**
      * Hook into send function of the response to receive the body.
+     * The optional `onSend` callback is invoked synchronously as the very first
+     * thing inside the patched send, before the promise resolves — this ensures
+     * any flag (e.g. `settled`) is set before the `finish` event fires.
      * @param res
+     * @param onSend Optional synchronous callback invoked when send is called
      */
-    private sendHook(res: express.Response): Promise<any> {
+    private sendHook(res: express.Response, onSend?: () => void): Promise<any> {
         return new Promise<any>((resolve) => {
             const defaultSend = res.send.bind(res);
             // @ts-ignore
             res.send = (body?: any) => {
+                if (onSend) {
+                    onSend();
+                }
                 resolve(body);
                 defaultSend(body);
             };

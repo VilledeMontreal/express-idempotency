@@ -13,6 +13,7 @@ import { IdempotencyService } from './idempotencyService';
 import * as express from 'express';
 import sinon from 'sinon';
 import * as HttpStatus from 'http-status-codes';
+import { EventEmitter } from 'events';
 
 describe('Idempotency service', () => {
     let idempotencyService: IdempotencyService = null;
@@ -669,5 +670,88 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         await wait(1);
 
         assert.isTrue(updateSpy.calledOnce);
+    });
+});
+
+describe('Idempotency service — finish hook (res.end bypass)', () => {
+    let dataAdapter: InMemoryDataAdapter = null;
+
+    afterEach(() => {
+        sinon.restore();
+    });
+
+    function makeService(): IdempotencyService {
+        dataAdapter = new InMemoryDataAdapter();
+        return new IdempotencyService({
+            idempotencyKeyHeader: 'idempotency-key',
+            intentValidator: new DefaultIntentValidator(),
+            dataAdapter,
+            responseValidator: new SuccessfulResponseValidator(),
+        });
+    }
+
+    it('res.end without res.send — resource deleted, warn emitted, next request reprocessed', async () => {
+        const svc = makeService();
+        const req = createRequest();
+
+        // EventEmitter is required for node-mocks-http to emit the finish event
+        const res = httpMocks.createResponse({ eventEmitter: EventEmitter });
+        const warnSpy = sinon.stub(console, 'warn');
+        const deleteSpy = sinon.spy(dataAdapter, 'delete');
+
+        await svc.provideMiddlewareFunction(
+            createCloneRequest(req),
+            res,
+            sinon.spy()
+        );
+
+        // Simulate res.end() — bypasses the monkey-patched res.send
+        res.end();
+        await wait(1);
+
+        assert.isTrue(warnSpy.called, 'console.warn should be called');
+        assert.isTrue(deleteSpy.calledOnce, 'resource should be deleted');
+
+        // Next request with same key must be reprocessed (not 409)
+        const retryNext = sinon.spy();
+        const retryReq = createCloneRequest(req);
+        await svc.provideMiddlewareFunction(
+            retryReq,
+            httpMocks.createResponse(),
+            retryNext
+        );
+
+        assert.isTrue(retryNext.calledOnce);
+        assert.isFalse(
+            svc.isHit(retryReq),
+            'retry should not be a hit — it must be reprocessed'
+        );
+    });
+
+    it('finish after res.send — update called once, delete not called, no warn', async () => {
+        const svc = makeService();
+        const req = createRequest();
+
+        const res = httpMocks.createResponse({ eventEmitter: EventEmitter });
+        const warnSpy = sinon.stub(console, 'warn');
+        const updateSpy = sinon.spy(dataAdapter, 'update');
+        const deleteSpy = sinon.spy(dataAdapter, 'delete');
+
+        await svc.provideMiddlewareFunction(
+            createCloneRequest(req),
+            res,
+            sinon.spy()
+        );
+
+        // Normal path: res.send triggers the monkey-patch, then finish fires
+        res.send('body');
+        await wait(1);
+
+        assert.isTrue(updateSpy.calledOnce, 'update should be called once');
+        assert.isFalse(deleteSpy.called, 'delete should not be called');
+        assert.isFalse(
+            warnSpy.called,
+            'warn should not be emitted on normal send path'
+        );
     });
 });
