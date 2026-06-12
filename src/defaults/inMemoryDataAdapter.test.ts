@@ -87,6 +87,30 @@ describe('In memory data adapter', () => {
         assert.deepEqual(idempotencyFoundAgain.response, idempotencyResponse);
     });
 
+    it('update is a no-op when key does not exist', async () => {
+        const existing = createFakeIdempotencyResource();
+        await dataAdapter.create(existing);
+
+        const ghost = createFakeIdempotencyResource(); // unknown key, never created
+        await dataAdapter.update(ghost);
+
+        // The phantom key must not appear in the adapter
+        const found = await dataAdapter.findByIdempotencyKey(
+            ghost.idempotencyKey
+        );
+        assert.isNull(found);
+
+        // The existing resource must be untouched
+        const existingFound = await dataAdapter.findByIdempotencyKey(
+            existing.idempotencyKey
+        );
+        assert.ok(existingFound);
+
+        // No "-1" phantom property must have been created on the internal array
+        const adapter = dataAdapter as any;
+        assert.isUndefined(adapter.idempotencyResources['-1']);
+    });
+
     it('deletes resource', async () => {
         // Generate resources
         const idempotencyResources = createArrayOfIndempotencyResource(10);
