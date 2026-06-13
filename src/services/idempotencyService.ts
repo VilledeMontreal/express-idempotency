@@ -43,13 +43,13 @@ export class IdempotencyService {
         const intentValidator =
             options.intentValidator ?? new DefaultIntentValidator();
 
-        // Normalise processingTimeout: undefined/0/negative/non-finite = feature disabled.
+        // Normalise processingTimeout: absent/0/negative/non-finite = feature disabled (0).
         const processingTimeout =
             typeof options.processingTimeout === 'number' &&
             isFinite(options.processingTimeout) &&
             options.processingTimeout > 0
                 ? options.processingTimeout
-                : undefined;
+                : 0;
 
         // Ensure that every propery has a value.
         this._options = {
@@ -106,7 +106,7 @@ export class IdempotencyService {
                 } else if (this.isLeaseExpired(resource)) {
                     // Orphaned in-progress resource: a previous request started but never
                     // persisted its response. Take over processing.
-                    delete req.headers[HIT_HEADER];
+                    Reflect.deleteProperty(req.headers, HIT_HEADER);
                     try {
                         await this._options.dataAdapter.delete(idempotencyKey);
                         const newResource: IdempotencyResource = {
@@ -232,7 +232,7 @@ export class IdempotencyService {
             if (settled) {
                 return;
             }
-            console.warn(
+            this.logWarning(
                 'Response sent without res.send — idempotency resource will be deleted.'
             );
             this.canStillPersist(resource)
@@ -242,7 +242,7 @@ export class IdempotencyService {
                     }
                 })
                 .catch(() => {
-                    console.warn(
+                    this.logWarning(
                         'Error while deleting idempotency resource after finish without send.'
                     );
                 });
@@ -382,17 +382,11 @@ export class IdempotencyService {
      * @param value Raw createdAt value from the resource
      */
     private parseCreatedAt(value: Date | number | any): number | null {
-        if (value === undefined || value === null) {
+        // The Date constructor would coerce null to epoch 0 — reject it explicitly.
+        // An absent value yields an invalid date, handled by the NaN guard below.
+        if (value === null) {
             return null;
         }
-        if (value instanceof Date) {
-            const ms = value.getTime();
-            return isNaN(ms) ? null : ms;
-        }
-        if (typeof value === 'number') {
-            return isNaN(value) ? null : value;
-        }
-        // String (e.g. ISO date from JSON round-trip through an adapter)
         const ms = new Date(value).getTime();
         return isNaN(ms) ? null : ms;
     }
@@ -426,31 +420,32 @@ export class IdempotencyService {
     private async canStillPersist(
         resource: IdempotencyResource
     ): Promise<boolean> {
-        const timeout = this._options.processingTimeout;
-        if (!timeout) {
-            return true;
-        }
-        const ageMs = this.parseCreatedAt(resource.createdAt);
-        if (ageMs === null || Date.now() - ageMs <= timeout) {
+        if (!this.isLeaseExpired(resource)) {
             return true;
         }
         // Our lease has expired — refetch to check whether a takeover replaced us.
         const current = await this._options.dataAdapter.findByIdempotencyKey(
             resource.idempotencyKey
         );
-        if (!current) {
-            console.warn(
-                'Skipping late persistence: resource was taken over and deleted.'
+        const stillOwner =
+            current &&
+            this.parseCreatedAt(current.createdAt) ===
+                this.parseCreatedAt(resource.createdAt);
+        if (!stillOwner) {
+            this.logWarning(
+                'Skipping late persistence: resource was taken over by a newer request.'
             );
-            return false;
         }
-        const currentAge = this.parseCreatedAt(current.createdAt);
-        if (currentAge !== ageMs) {
-            console.warn(
-                'Skipping late persistence: resource was replaced by a newer request.'
-            );
-            return false;
-        }
-        return true;
+        return !!stillOwner;
+    }
+
+    /**
+     * Emit an internal warning. Centralised so it can be replaced by a
+     * pluggable logger in a future release without touching call sites.
+     * @param message Warning message
+     */
+    private logWarning(message: string): void {
+        // eslint-disable-next-line no-console
+        console.warn(message);
     }
 }

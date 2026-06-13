@@ -36,6 +36,11 @@ module.exports = [
         plugins: {
             '@typescript-eslint': tseslint,
         },
+        linterOptions: {
+            // Inline disable directives may target rules enforced only by
+            // external analyzers (e.g. Codacy) that are not enabled locally.
+            reportUnusedDisableDirectives: 'off',
+        },
         rules: {
             ...tseslint.configs.recommended.rules,
             '@typescript-eslint/no-explicit-any': 0,
