@@ -21,3 +21,4 @@ yarn.lock
 
 # Test compilation
 .temp
+.temp-e2e/

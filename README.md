@@ -182,6 +182,42 @@ app.post(
 - Due to the check-then-act nature of the takeover, at-least-once delivery semantics apply when the timeout is reached. If two retries race at expiry, one will win and the other will fall back to a `409`.
 - When a response is sent via `res.end()`, streaming, or `sendFile` (bypassing `res.send`), the middleware cannot capture the body. It automatically deletes the resource so the next retry is reprocessed rather than permanently blocked.
 
+## Testing
+
+This library has two test layers, both run in CI on every branch:
+
+- **Unit tests** — `npm test` (mock-based, fast; coverage reported to Codacy via lcov).
+- **End-to-end tests** — `npm run test:e2e` exercises the full middleware over a **real HTTP server** (Express + native `fetch`): replay/hit, `409` in-progress conflict, concurrent retries, `processingTimeout` takeover, zombie-write guard, phantom-key cleanup (`res.end` bypass), intent mismatch (`417`) and `reportError`.
+
+`npm run test:all` runs both layers. The e2e suite requires **Node >= 18.2** (it relies on `server.closeAllConnections`).
+
+### Manual probing
+
+A standalone harness server is available for manual exploration with curl or a REST client:
+
+```bash
+npm run e2e:serve   # http://localhost:8080 (override with the PORT env var)
+
+# Same key replays the first response; a different key is processed fresh:
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+```
+
+> **Error-handler contract:** the middleware signals conflicts and misuse by setting the status (`409` / `417`) and calling `next(err)`. Your app must register an Express error handler that honours the already-set `res.statusCode`, otherwise Express emits a generic `500`. See `tests/e2e/harness/buildApp.ts` for a reference handler.
+
+### Reusing the suite for custom adapters
+
+The behavioural suite is factored as `runIdempotencySuite(makeApp)` (`tests/e2e/harness/scenarios.ts`), so a custom data adapter can replay the exact same guarantees:
+
+```typescript
+import { buildApp } from './harness/buildApp';
+import { runIdempotencySuite } from './harness/scenarios';
+
+describe('MyAdapter over real HTTP', () => {
+    runIdempotencySuite((options) => buildApp({ ...options, dataAdapter: new MyAdapter() }));
+});
+```
+
 ## License
 
 The source code of this project is distributed under the [MIT License](LICENSE).
@@ -363,6 +399,42 @@ app.post(
 - Choisir une valeur d'au moins 2× la durée de traitement maximale pour éviter les reprises prématurées.
 - En raison de la nature « vérifier puis agir » de la reprise, une sémantique de livraison « au moins une fois » s'applique lorsque le délai est atteint. Si deux tentatives entrent en concurrence à l'expiration, l'une gagnera et l'autre recevra un `409`.
 - Lorsqu'une réponse est envoyée via `res.end()`, le streaming ou `sendFile` (sans passer par `res.send`), le middleware ne peut pas capturer le corps. Il supprime automatiquement la ressource afin que la prochaine tentative soit retraitée plutôt que bloquée de façon permanente.
+
+## Tests
+
+La librairie comporte deux niveaux de tests, tous deux exécutés en CI sur chaque branche :
+
+- **Tests unitaires** — `npm test` (basés sur des mocks, rapides ; couverture envoyée à Codacy via lcov).
+- **Tests de bout en bout** — `npm run test:e2e` exerce l'ensemble du middleware sur un **vrai serveur HTTP** (Express + `fetch` natif) : rejeu/hit, conflit `409` en cours de traitement, tentatives concurrentes, reprise par `processingTimeout`, garde anti-écriture « zombie », nettoyage des clés fantômes (contournement de `res.send` via `res.end()`), intention divergente (`417`) et `reportError`.
+
+`npm run test:all` lance les deux niveaux. La suite e2e requiert **Node >= 18.2** (elle s'appuie sur `server.closeAllConnections`).
+
+### Exploration manuelle
+
+Un serveur de test autonome permet une exploration manuelle (curl ou client REST) :
+
+```bash
+npm run e2e:serve   # http://localhost:8080 (modifiable via la variable d'env PORT)
+
+# Une même clé rejoue la première réponse ; une clé différente est traitée à neuf :
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+```
+
+> **Contrat du gestionnaire d'erreurs :** le middleware signale les conflits et les mésusages en positionnant le statut (`409` / `417`) puis en appelant `next(err)`. Votre application doit enregistrer un gestionnaire d'erreurs Express qui respecte le `res.statusCode` déjà positionné, sinon Express renvoie un `500` générique. Voir `tests/e2e/harness/buildApp.ts` pour un gestionnaire de référence.
+
+### Réutiliser la suite pour des adapteurs personnalisés
+
+La suite comportementale est factorisée sous la forme `runIdempotencySuite(makeApp)` (`tests/e2e/harness/scenarios.ts`), de sorte qu'un adapteur de données personnalisé peut rejouer exactement les mêmes garanties :
+
+```typescript
+import { buildApp } from './harness/buildApp';
+import { runIdempotencySuite } from './harness/scenarios';
+
+describe('MonAdapteur sur un vrai serveur HTTP', () => {
+    runIdempotencySuite((options) => buildApp({ ...options, dataAdapter: new MonAdapteur() }));
+});
+```
 
 ## Contribuer
 

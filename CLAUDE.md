@@ -18,6 +18,9 @@ Librairie npm open source (`express-idempotency`, MIT) : middleware Express qui 
 | `npm run compile` | Build de distribution → `dist/` (`tsconfig.dist.json`, CommonJS, ES2020, `.d.ts` émis) |
 | `npm run lint` / `npm run lint:fix` | ESLint 9 (flat config `eslint.config.js`) |
 | `npm run prettier` / `npm run prettier:fix` | Prettier en mode check / write |
+| `npm run test:e2e` | Suite e2e sur vrai serveur HTTP (`.mocharc.e2e.yml` + `tsconfig.e2e.json`, specs `tests/e2e/**/*.e2e.test.ts`) |
+| `npm run test:all` | `npm test` (unitaire) puis `npm run test:e2e` |
+| `npm run e2e:serve` | Démarre le harness en standalone (port 8080, override `PORT`) pour debug manuel (curl/REST) |
 
 Hooks Husky : `pre-commit` est vide par design ; `pre-push` exécute `npm run prettier && npm run lint && npm test` — tout doit passer avant un push. `commit-msg` impose Conventional Commits (commitlint).
 
@@ -26,6 +29,15 @@ Hooks Husky : `pre-commit` est vide par design ; `pre-push` exécute `npm run pr
 ## Release
 
 CircleCI publie sur npm uniquement sur tag git : `vX.Y.Z` → publication normale, `vX.Y.Z-<suffixe>` → publication avec dist-tag `rc`. Les tests tournent sur toutes les branches ; la couverture (lcov) part vers Codacy. Branches : `master` (production) et `develop`.
+
+## Tests e2e
+
+Suite de bout en bout dans `tests/e2e/` (**hors `src/`** → exclue de la couverture lcov et du package `dist`). Vrai serveur HTTP (Express + `fetch` natif, port éphémère), pas de mocks. Requiert Node ≥ 18.2 ; `express` et `cross-env` sont en devDependencies.
+
+- `tests/e2e/harness/` — harness réutilisable : `buildApp(options?)` (app + routes instrumentées + error handler), `startServer(app)` (port 0 + mode standalone, draine les requêtes in-flight au close), `controls` (gates déterministes, compteurs d'exécution, traçage des `delete`), `runIdempotencySuite(makeApp)` rejouable sur n'importe quel data adapter.
+- `tests/e2e/inmemory.e2e.test.ts` — exécute la suite sur l'`InMemoryDataAdapter` par défaut.
+- **Contrat error-handler** : le middleware fait `res.status(409|417); next(err)` ; un error handler Express explicite (présent dans `buildApp`) est requis pour propager ces codes, sinon Express renvoie 500.
+- Lancé en CI par un job CircleCI dédié `e2e` ; `package` est gaté sur `test` + `e2e`. Le `pre-push` Husky ne lance PAS les e2e (CI-only).
 
 ## Architecture
 

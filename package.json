@@ -15,7 +15,10 @@
     "lint:fix": "./node_modules/.bin/eslint ./src --ext .ts,.tsx --fix",
     "prettier": "./node_modules/.bin/prettier --check ./src",
     "prettier:fix": "./node_modules/.bin/prettier --write ./src",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:e2e": "cross-env TS_NODE_PROJECT=tsconfig.e2e.json mocha --config .mocharc.e2e.yml",
+    "test:all": "npm test && npm run test:e2e",
+    "e2e:serve": "cross-env TS_NODE_PROJECT=tsconfig.e2e.json ts-node tests/e2e/harness/server.ts"
   },
   "repository": {
     "type": "git",
@@ -40,13 +43,16 @@
     "@types/express": "^5.0.5",
     "@types/express-serve-static-core": "^5.1.0",
     "@types/mocha": "^10.0.10",
+    "@types/node": "^25.9.3",
     "@types/serve-static": "^2.2.0",
     "@types/sinon": "^21.0.1",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
     "chai": "^6.2.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
+    "express": "^5.2.1",
     "husky": "^9.1.7",
     "mocha": "^11.7.5",
     "node-mocks-http": "^1.17.2",

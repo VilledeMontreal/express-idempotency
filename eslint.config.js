@@ -7,7 +7,7 @@ const path = require('path');
 module.exports = [
     // Global ignores
     {
-        ignores: ['**/*.test.ts', 'dist/**', 'node_modules/**'],
+        ignores: ['**/*.test.ts', 'dist/**', 'node_modules/**', 'tests/**'],
     },
     // Base ESLint recommended rules
     eslint.configs.recommended,
