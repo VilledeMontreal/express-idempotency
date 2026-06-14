@@ -27,6 +27,12 @@ jobs:
       - coverage-reporter/send_report:
           coverage-reports: "coverage/lcov.info"
           project-token: ${CODACY_PROJECT_TOKEN}
+  e2e:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: /home/circleci
+      - run: npm run test:e2e
   package:
     <<: *defaults
     steps:
@@ -81,9 +87,18 @@ workflows:
               only: /^v\d+\.{1}\d+.{1}\d.*+/
             branches:
               only: /.*/
+      - e2e:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v\d+\.{1}\d+.{1}\d.*+/
+            branches:
+              only: /.*/
       - package:
           requires:
             - test
+            - e2e
           filters:
             tags:
               only: /^v\d+\.{1}\d+.{1}\d.*+/

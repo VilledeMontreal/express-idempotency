@@ -49,6 +49,15 @@ export interface IdempotencyResource {
      * be returned for a matching idempotency key.
      */
     response?: IdempotencyResponse;
+
+    /**
+     * Timestamp set by the middleware when the resource is created (processing start).
+     * Used by the `processingTimeout` lease mechanism to detect orphaned in-progress
+     * resources and allow a subsequent request to take over processing.
+     * Adapters must persist and return this field for the expiry feature to be active;
+     * if absent, the resource is treated as non-expired (safe degradation).
+     */
+    createdAt?: Date | number;
 }
 
 /**
@@ -130,4 +139,16 @@ export interface IdempotencyOptions {
     // Validate the intent of the request
     // Default is the DefaultIntentValidator.
     intentValidator?: IIdempotencyIntentValidator;
+    /**
+     * Maximum time in milliseconds allowed for a request to complete before its
+     * in-progress resource is considered orphaned and can be taken over by a
+     * subsequent retry. Values of `undefined`, `0`, or any non-positive / non-finite
+     * number disable the feature (default: disabled — behaviour identical to v2.0.0).
+     * Requires the data adapter to persist and return `IdempotencyResource.createdAt`;
+     * without it the feature is silently inert.
+     * Choose a value at least 2× the worst-case processing duration to avoid false
+     * takeovers. Note: due to the check-then-act nature of the takeover, at-least-once
+     * delivery semantics apply when the timeout is reached.
+     */
+    processingTimeout?: number;
 }

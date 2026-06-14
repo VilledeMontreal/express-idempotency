@@ -7,7 +7,7 @@ const path = require('path');
 module.exports = [
     // Global ignores
     {
-        ignores: ['**/*.test.ts', 'dist/**', 'node_modules/**'],
+        ignores: ['**/*.test.ts', 'dist/**', 'node_modules/**', 'tests/**'],
     },
     // Base ESLint recommended rules
     eslint.configs.recommended,
@@ -35,6 +35,11 @@ module.exports = [
         },
         plugins: {
             '@typescript-eslint': tseslint,
+        },
+        linterOptions: {
+            // Inline disable directives may target rules enforced only by
+            // external analyzers (e.g. Codacy) that are not enabled locally.
+            reportUnusedDisableDirectives: 'off',
         },
         rules: {
             ...tseslint.configs.recommended.rules,

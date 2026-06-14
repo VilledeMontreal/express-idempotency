@@ -5,6 +5,19 @@ All notable changes to this library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `processingTimeout` option (milliseconds): lease mechanism that allows a retry to take over processing of an in-progress resource after the timeout elapses, preventing permanent `409` locks caused by orphaned requests (crash, OOM, rollout). Opt-in; disabled when absent or `<= 0`. Requires the data adapter to persist and return `IdempotencyResource.createdAt`. (issue #32)
+- `IdempotencyResource.createdAt` field (`Date | number`, optional): timestamp stamped unconditionally by the middleware at resource creation. Used by the `processingTimeout` lease mechanism; absent value degrades safely to the v2.0.0 behaviour.
+- End-to-end test suite (`npm run test:e2e`) exercising the middleware over a real HTTP server (Express + native `fetch`): replay/hit, `409` in-progress conflict, concurrent retries, `processingTimeout` takeover, zombie-write guard, phantom-key cleanup (`res.end` bypass), intent mismatch (`417`) and `reportError`. Factored as `runIdempotencySuite` for reuse across data adapters, runnable standalone via `npm run e2e:serve`, and wired as a dedicated CI job.
+
+### Fixed
+
+- Resources left in-progress when the response bypasses `res.send` (e.g. `res.end()`, streaming, `sendFile`) are now automatically deleted on the `finish` event, allowing the next retry to be reprocessed instead of receiving a permanent `409`.
+- `InMemoryDataAdapter.update` no longer creates a phantom `"-1"` property on the internal array when called with an unknown key; it is now a no-op, aligned with MongoDB `updateOne` semantics.
+
 ## [2.0.0] - 2025-11-05
 
 ### 🎉 Major Upgrade - All Dependencies Updated

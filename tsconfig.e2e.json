@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./.temp-e2e",
+        "types": ["node", "mocha"]
+    },
+    "include": ["tests/**/*.ts", "src/**/*.ts"],
+    "exclude": [".temp", ".temp-e2e", "dist", "node_modules"]
+}

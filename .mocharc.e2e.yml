@@ -1,0 +1,8 @@
+# Mocha configuration — end-to-end suite (real HTTP server).
+recursive: true
+require:
+    - ts-node/register
+    - source-map-support/register
+spec: 'tests/e2e/**/*.e2e.test.ts'
+timeout: 10000
+exit: true

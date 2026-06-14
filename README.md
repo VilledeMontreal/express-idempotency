@@ -106,6 +106,10 @@ app.post(
         responseValidator,
         // Logic to detect misuse of the idempotency key
         intentValidator,
+        // Maximum processing time (ms) before an in-progress resource is
+        // considered orphaned and can be taken over by a retry.
+        // Disabled when absent or <= 0.
+        processingTimeout,
     })
 );
 ```
@@ -152,6 +156,66 @@ export class CustomIntentValidator implements IIdempotencyIntentValidator {
     // For example, the url must match
     return req.url === idempotencyRequest.url;
   }
+```
+
+#### Processing timeout
+
+By default, if a request starts processing but never completes (crash, OOM, rollout, or a response sent via `res.end()` / streaming / `sendFile` that bypasses `res.send`), the in-progress resource remains locked and subsequent retries receive a permanent `409 Conflict` until the adapter's TTL expires.
+
+The `processingTimeout` option (in milliseconds) enables a lease mechanism: if a retry arrives after the timeout has elapsed since the resource was created, the middleware considers the original request orphaned and takes over processing.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        dataAdapter,
+        // Allow a retry to take over after 30 seconds
+        processingTimeout: 30_000,
+    })
+);
+```
+
+**Requirements and caveats:**
+
+- The data adapter must persist and return the `createdAt` field of `IdempotencyResource`. Without it the feature is silently inert (safe degradation to the v2.0.0 behaviour).
+- Choose a value at least 2× the worst-case processing duration to avoid false takeovers.
+- Due to the check-then-act nature of the takeover, at-least-once delivery semantics apply when the timeout is reached. If two retries race at expiry, one will win and the other will fall back to a `409`.
+- When a response is sent via `res.end()`, streaming, or `sendFile` (bypassing `res.send`), the middleware cannot capture the body. It automatically deletes the resource so the next retry is reprocessed rather than permanently blocked.
+
+## Testing
+
+This library has two test layers, both run in CI on every branch:
+
+- **Unit tests** — `npm test` (mock-based, fast; coverage reported to Codacy via lcov).
+- **End-to-end tests** — `npm run test:e2e` exercises the full middleware over a **real HTTP server** (Express + native `fetch`): replay/hit, `409` in-progress conflict, concurrent retries, `processingTimeout` takeover, zombie-write guard, phantom-key cleanup (`res.end` bypass), intent mismatch (`417`) and `reportError`.
+
+`npm run test:all` runs both layers. The e2e suite requires **Node >= 18.2** (it relies on `server.closeAllConnections`).
+
+### Manual probing
+
+A standalone harness server is available for manual exploration with curl or a REST client:
+
+```bash
+npm run e2e:serve   # http://localhost:8080 (override with the PORT env var)
+
+# Same key replays the first response; a different key is processed fresh:
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+```
+
+> **Error-handler contract:** the middleware signals conflicts and misuse by setting the status (`409` / `417`) and calling `next(err)`. Your app must register an Express error handler that honours the already-set `res.statusCode`, otherwise Express emits a generic `500`. See `tests/e2e/harness/buildApp.ts` for a reference handler.
+
+### Reusing the suite for custom adapters
+
+The behavioural suite is factored as `runIdempotencySuite(makeApp)` (`tests/e2e/harness/scenarios.ts`), so a custom data adapter can replay the exact same guarantees:
+
+```typescript
+import { buildApp } from './harness/buildApp';
+import { runIdempotencySuite } from './harness/scenarios';
+
+describe('MyAdapter over real HTTP', () => {
+    runIdempotencySuite((options) => buildApp({ ...options, dataAdapter: new MyAdapter() }));
+});
 ```
 
 ## License
@@ -260,6 +324,10 @@ app.post(
         responseValidator,
         // Préciser la logique à appliquer pour s'assurer de la bonne utilisation de la clé d'idempotence.
         intentValidator,
+        // Durée maximale de traitement (ms) avant qu'une ressource en cours soit
+        // considérée orpheline et reprise par une nouvelle tentative.
+        // Désactivé si absent ou <= 0.
+        processingTimeout,
     })
 );
 ```
@@ -306,6 +374,66 @@ export class CustomIntentValidator implements IIdempotencyIntentValidator {
     // Par exemple, seulement l'adresse doit correspondre
     return req.url === idempotencyRequest.url;
   }
+```
+
+#### Délai de traitement
+
+Par défaut, si une requête démarre son traitement mais ne se termine jamais (crash, OOM, redéploiement, ou réponse envoyée via `res.end()` / streaming / `sendFile` sans passer par `res.send`), la ressource en cours reste verrouillée et les nouvelles tentatives reçoivent un `409 Conflict` permanent jusqu'à l'expiration du TTL de l'adapteur.
+
+L'option `processingTimeout` (en millisecondes) active un mécanisme de bail : si une nouvelle tentative arrive après l'écoulement du délai depuis la création de la ressource, le middleware considère la requête originale comme orpheline et reprend le traitement.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        dataAdapter,
+        // Permettre à une nouvelle tentative de reprendre après 30 secondes
+        processingTimeout: 30_000,
+    })
+);
+```
+
+**Prérequis et mises en garde :**
+
+- L'adapteur de données doit persister et retourner le champ `createdAt` de `IdempotencyResource`. Sans cela, la fonctionnalité est silencieusement inerte (dégradation propre vers le comportement v2.0.0).
+- Choisir une valeur d'au moins 2× la durée de traitement maximale pour éviter les reprises prématurées.
+- En raison de la nature « vérifier puis agir » de la reprise, une sémantique de livraison « au moins une fois » s'applique lorsque le délai est atteint. Si deux tentatives entrent en concurrence à l'expiration, l'une gagnera et l'autre recevra un `409`.
+- Lorsqu'une réponse est envoyée via `res.end()`, le streaming ou `sendFile` (sans passer par `res.send`), le middleware ne peut pas capturer le corps. Il supprime automatiquement la ressource afin que la prochaine tentative soit retraitée plutôt que bloquée de façon permanente.
+
+## Tests
+
+La librairie comporte deux niveaux de tests, tous deux exécutés en CI sur chaque branche :
+
+- **Tests unitaires** — `npm test` (basés sur des mocks, rapides ; couverture envoyée à Codacy via lcov).
+- **Tests de bout en bout** — `npm run test:e2e` exerce l'ensemble du middleware sur un **vrai serveur HTTP** (Express + `fetch` natif) : rejeu/hit, conflit `409` en cours de traitement, tentatives concurrentes, reprise par `processingTimeout`, garde anti-écriture « zombie », nettoyage des clés fantômes (contournement de `res.send` via `res.end()`), intention divergente (`417`) et `reportError`.
+
+`npm run test:all` lance les deux niveaux. La suite e2e requiert **Node >= 18.2** (elle s'appuie sur `server.closeAllConnections`).
+
+### Exploration manuelle
+
+Un serveur de test autonome permet une exploration manuelle (curl ou client REST) :
+
+```bash
+npm run e2e:serve   # http://localhost:8080 (modifiable via la variable d'env PORT)
+
+# Une même clé rejoue la première réponse ; une clé différente est traitée à neuf :
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
+```
+
+> **Contrat du gestionnaire d'erreurs :** le middleware signale les conflits et les mésusages en positionnant le statut (`409` / `417`) puis en appelant `next(err)`. Votre application doit enregistrer un gestionnaire d'erreurs Express qui respecte le `res.statusCode` déjà positionné, sinon Express renvoie un `500` générique. Voir `tests/e2e/harness/buildApp.ts` pour un gestionnaire de référence.
+
+### Réutiliser la suite pour des adapteurs personnalisés
+
+La suite comportementale est factorisée sous la forme `runIdempotencySuite(makeApp)` (`tests/e2e/harness/scenarios.ts`), de sorte qu'un adapteur de données personnalisé peut rejouer exactement les mêmes garanties :
+
+```typescript
+import { buildApp } from './harness/buildApp';
+import { runIdempotencySuite } from './harness/scenarios';
+
+describe('MonAdapteur sur un vrai serveur HTTP', () => {
+    runIdempotencySuite((options) => buildApp({ ...options, dataAdapter: new MonAdapteur() }));
+});
 ```
 
 ## Contribuer

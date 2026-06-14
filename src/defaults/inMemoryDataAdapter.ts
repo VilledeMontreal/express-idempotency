@@ -45,6 +45,9 @@ export class InMemoryDataAdapter implements IIdempotencyDataAdapter {
         const findIndex = this.idempotencyResources.findIndex(
             (x) => x.idempotencyKey === idempotencyResource.idempotencyKey
         );
+        if (findIndex < 0) {
+            return;
+        }
         this.idempotencyResources[findIndex] = idempotencyResource;
     }
 
