@@ -28,7 +28,7 @@ Hooks Husky : `pre-commit` est vide par design ; `pre-push` exécute `npm run pr
 
 ## Release
 
-CircleCI publie sur npm uniquement sur tag git : `vX.Y.Z` → publication normale, `vX.Y.Z-<suffixe>` → publication avec dist-tag `rc`. Les tests tournent sur toutes les branches ; la couverture (lcov) part vers Codacy. Branches : `master` (production) et `develop`.
+**GitHub Actions** (`.github/workflows/ci.yml`) exécute build, lint, prettier, tests unitaires + e2e sur push (toutes branches) et PR ; la couverture (lcov) est uploadée vers Codacy **uniquement sur push vers le repo upstream** (le secret n'est pas exposé aux PR de forks). **CircleCI** (`.circleci/config.yml`) est réduit à la **publication npm sur tag git** : `vX.Y.Z` → publication normale, `vX.Y.Z-<suffixe>` → publication avec dist-tag `rc`. Branches : `master` (production) et `develop`.
 
 ## Tests e2e
 
@@ -37,7 +37,7 @@ Suite de bout en bout dans `tests/e2e/` (**hors `src/`** → exclue de la couver
 - `tests/e2e/harness/` — harness réutilisable : `buildApp(options?)` (app + routes instrumentées + error handler), `startServer(app)` (port 0 + mode standalone, draine les requêtes in-flight au close), `controls` (gates déterministes, compteurs d'exécution, traçage des `delete`), `runIdempotencySuite(makeApp)` rejouable sur n'importe quel data adapter.
 - `tests/e2e/inmemory.e2e.test.ts` — exécute la suite sur l'`InMemoryDataAdapter` par défaut.
 - **Erreurs typées** : le middleware fait `res.status(409|417)` puis `next(err)` avec une erreur exportée portant `statusCode`/`status` (`IdempotencyConflictError` 409, `IdempotencyIntentMismatchError` 417, base `IdempotencyError`) ; Express en dérive le bon code nativement, **même sans error handler**. Le handler de `buildApp` (désactivable via `withErrorHandler: false`) sert de référence pour mettre en forme le corps.
-- Lancé en CI par un job CircleCI dédié `e2e` ; `package` est gaté sur `test` + `e2e`. Le `pre-push` Husky ne lance PAS les e2e (CI-only).
+- Lancé en CI par GitHub Actions (step `E2E tests` du workflow `ci.yml`, après les tests unitaires). Le `pre-push` Husky ne lance PAS les e2e (CI-only).
 
 ## Architecture
 

@@ -1,4 +1,10 @@
 # .circleci/config.yml
+#
+# CircleCI is now scoped to npm publishing ONLY. Build, lint and test run on
+# GitHub Actions (see .github/workflows/ci.yml). Publishing stays here because the
+# npm token is a CircleCI secret tied to a maintainer's personal npm account and
+# cannot be moved without an org admin. The publish flow runs only on version tags,
+# so no CircleCI check is posted on branches or pull requests.
 defaults: &defaults
   executor:
     name: node/default
@@ -7,32 +13,22 @@ defaults: &defaults
 version: 2.1
 orbs:
   node: circleci/node@5.1.0
-  coverage-reporter: codacy/coverage-reporter@13.13.7
 jobs:
   build:
     <<: *defaults
     steps:
-      - checkout
+      # Public repo: clone over HTTPS to bypass the CircleCI SSH deploy key.
+      # This flow only runs on version tags (publishing).
+      - run:
+          name: Checkout over HTTPS
+          command: |
+            git clone "https://github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git" .
+            git checkout -f "${CIRCLE_SHA1}"
       - node/install-packages
       - persist_to_workspace:
           root: /home/circleci
           paths:
             - project/*
-  test:
-    <<: *defaults
-    steps:
-      - attach_workspace:
-          at: /home/circleci
-      - run: npm test
-      - coverage-reporter/send_report:
-          coverage-reports: "coverage/lcov.info"
-          project-token: ${CODACY_PROJECT_TOKEN}
-  e2e:
-    <<: *defaults
-    steps:
-      - attach_workspace:
-          at: /home/circleci
-      - run: npm run test:e2e
   package:
     <<: *defaults
     steps:
@@ -66,39 +62,22 @@ jobs:
     steps:
       - attach_workspace:
           at: /home/circleci
-      - run: 
+      - run:
           name: "Extract release candidate version and update package.json"
-          command: RC_TAG=`echo $CIRCLE_TAG | cut -c 2-` && echo "Extracted version $RC_TAG" && npm version -git-tag-version false $RC_TAG
+          command: RC_TAG=`echo $CIRCLE_TAG | cut -c 2-` && echo "Extracted version $RC_TAG" && npm version --no-git-tag-version $RC_TAG
       - run: npm publish --tag rc --access public
 workflows:
-  main-workflow:
+  publish-on-tag:
     jobs:
       - build:
           filters:
             tags:
               only: /^v\d+\.{1}\d+.{1}\d.*+/
             branches:
-              only: /.*/
-      - test:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /^v\d+\.{1}\d+.{1}\d.*+/
-            branches:
-              only: /.*/
-      - e2e:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /^v\d+\.{1}\d+.{1}\d.*+/
-            branches:
-              only: /.*/
+              ignore: /.*/
       - package:
           requires:
-            - test
-            - e2e
+            - build
           filters:
             tags:
               only: /^v\d+\.{1}\d+.{1}\d.*+/

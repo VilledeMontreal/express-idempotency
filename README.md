@@ -2,12 +2,12 @@ Add idempotency to your express route, effortlessly, the way you want it.
 
 #### Production (master)
 
-[![CircleCI](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/master.svg?style=shield)](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/master) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/958bd19185f44fcda617a15fb6a72c1d?branch=master)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade&branch=master)
+[![CI](https://github.com/VilledeMontreal/express-idempotency/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/VilledeMontreal/express-idempotency/actions/workflows/ci.yml) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/958bd19185f44fcda617a15fb6a72c1d?branch=master)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade&branch=master)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/958bd19185f44fcda617a15fb6a72c1d?branch=master)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Coverage&branch=master)
 
 #### Development branch (develop)
 
-[![CircleCI](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/develop.svg?style=shield)](https://circleci.com/gh/VilledeMontreal/express-idempotency/tree/develop) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/958bd19185f44fcda617a15fb6a72c1d?branch=develop)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade&branch=develop)
+[![CI](https://github.com/VilledeMontreal/express-idempotency/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/VilledeMontreal/express-idempotency/actions/workflows/ci.yml) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/958bd19185f44fcda617a15fb6a72c1d?branch=develop)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Grade&branch=develop)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/958bd19185f44fcda617a15fb6a72c1d?branch=develop)](https://www.codacy.com/gh/VilledeMontreal/express-idempotency?utm_source=github.com&utm_medium=referral&utm_content=VilledeMontreal/express-idempotency&utm_campaign=Badge_Coverage&branch=develop)
 
 ([Français](#french-version))
