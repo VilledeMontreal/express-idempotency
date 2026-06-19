@@ -48,7 +48,7 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 **`services/idempotencyService.ts`** — toute la logique. Flux du middleware :
 
 1. Pas de header `idempotency-key` → `next()` passthrough total.
-2. Clé présente + resource existante → marquage interne du hit (`WeakSet` sur l'instance de service, non spoofable), puis validation d'intention ; si intention invalide → 417 ; si réponse cachée disponible → replay (statut + body + headers whitelistés) puis `next()` ; si traitement encore en cours (resource sans réponse) → 409.
+2. Clé présente + resource existante → marquage interne du hit (`WeakSet` sur l'instance de service, non spoofable), puis validation d'intention ; si intention invalide → 417 ; **si une réponse cachée est disponible → replay** (statut + body + headers whitelistés) puis `next()`, **quel que soit l'âge de la resource** (une resource complète n'est jamais orpheline) ; sinon, si l'option `processingTimeout` est active et que le lease a expiré (resource **sans** réponse, `createdAt` plus vieux que le timeout) → **takeover** (`delete` puis reprise du traitement — exécution fraîche, pas un hit) ; sinon (traitement encore en cours) → 409.
 3. Clé présente + aucune resource → `create` de la resource, hook sur `res.send`, `next()` ; à l'envoi de la réponse, persistance **fire-and-forget** (`update` si le responseValidator accepte, `delete` sinon).
 
 **`models/models.ts`** — trois interfaces de stratégie injectables via `IdempotencyOptions`, avec leurs défauts dans `src/defaults/` :
@@ -67,6 +67,8 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 - **La capture de réponse passe par un monkey-patch de `res.send`** (`sendHook`). `res.json` et `res.sendStatus` délèguent à `send` donc sont couverts ; `res.end` direct et le streaming ne le sont pas — limitation connue.
 - **Seul `content-type` est rejoué** parmi les headers de la réponse cachée (whiteliste dans `buildIdempotencyResponse`).
 - **`@boundClass` (autobind-decorator) sur `IdempotencyService`** est nécessaire : la fonction middleware est passée détachée de son instance.
+- **Une réponse cachée prime toujours sur le takeover** : le flux vérifie `resource.response` (replay) **avant** `isLeaseExpired` (takeover). Une resource complète n'est jamais orpheline, quel que soit l'âge de son `createdAt` ; le lease/takeover (`processingTimeout`) ne concerne que les resources in-progress (sans réponse). Inverser cet ordre plafonnerait la fenêtre d'idempotence à `processingTimeout` au lieu du TTL de l'adapter.
+- **Le lease `processingTimeout` repose sur `IdempotencyResource.createdAt`** (estampillé par le middleware au `create`). Le data adapter doit le **persister et le retourner tel quel** ; `canStillPersist` (zombie-write guard) compare le `createdAt` en mémoire au `createdAt` relu pour ne pas écraser la réponse d'un takeover. Un adapter qui régénère `createdAt` casse le mécanisme (cf. `express-idempotency-mongo-adapter` issue #16).
 
 ## Pièges connus
 
