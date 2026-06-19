@@ -14,12 +14,13 @@ import {
     IdempotencyResource,
     IdempotencyResponse,
 } from '../models/models';
+import {
+    IdempotencyConflictError,
+    IdempotencyIntentMismatchError,
+} from '../errors/idempotencyErrors';
 
 // Default values
 const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
-
-const HIT_HEADER = 'x-hit';
-const HIT_VALUE = 'true';
 
 /**
  * This class represent the idempotency service.
@@ -28,6 +29,13 @@ const HIT_VALUE = 'true';
 @boundClass
 export class IdempotencyService {
     private _options: IdempotencyOptions;
+
+    /**
+     * Server-side set of requests already marked as an idempotency hit. Keyed on
+     * the request object itself so a client cannot spoof a hit by sending a
+     * header. Entries are garbage-collected once the request is released.
+     */
+    private _hits = new WeakSet<express.Request>();
 
     /**
      * Constructor, used to initialize default values if options are not provided.
@@ -72,95 +80,111 @@ export class IdempotencyService {
         res: express.Response,
         next: express.NextFunction
     ): Promise<void> {
-        // Get the idempotency key to determine if there is something to process
-        const idempotencyKey: string = this.extractIdempotencyKeyFromReq(req);
-        if (idempotencyKey) {
-            res.setHeader(this._options.idempotencyKeyHeader, idempotencyKey);
+        // Guard against a double next() across the branches below and ensure any
+        // rejected adapter/validator call is forwarded to the Express error
+        // pipeline instead of leaking an unhandled promise rejection (which, under
+        // Express 4, would leave the request hanging).
+        let nextCalled = false;
+        const safeNext: express.NextFunction = (err?: any) => {
+            if (nextCalled) {
+                return;
+            }
+            nextCalled = true;
+            next(err);
+        };
 
-            // If there is already a resource associated to this idempotency key,
-            // there will be 2 scenarios: the previous request is still in progress or there is
-            // a response available.
-            let resource =
-                await this._options.dataAdapter.findByIdempotencyKey(
+        try {
+            // Get the idempotency key to determine if there is something to process
+            const idempotencyKey: string =
+                this.extractIdempotencyKeyFromReq(req);
+            if (idempotencyKey) {
+                res.setHeader(
+                    this._options.idempotencyKeyHeader,
                     idempotencyKey
                 );
-            if (resource) {
-                // Indicate idempotency exists
-                req.headers[HIT_HEADER] = HIT_VALUE;
 
-                // Validate the intent before going any further. This is to avoid misuse of the
-                // idempotency key function. This could also lead to security vulnerability
-                // because someone could send random key to get response.
-                if (
-                    !this._options.intentValidator.isValidIntent(
-                        req,
-                        resource.request
-                    )
-                ) {
-                    // Invalid intent. Client must correct his request.
-                    const invalidIntentError = new Error(
-                        'Misuse of the idempotency key. Please check your request.'
+                // If there is already a resource associated to this idempotency key,
+                // there will be 2 scenarios: the previous request is still in progress or there is
+                // a response available.
+                const resource =
+                    await this._options.dataAdapter.findByIdempotencyKey(
+                        idempotencyKey
                     );
-                    res.status(HttpStatus.EXPECTATION_FAILED);
-                    next(invalidIntentError);
-                } else if (this.isLeaseExpired(resource)) {
-                    // Orphaned in-progress resource: a previous request started but never
-                    // persisted its response. Take over processing.
-                    Reflect.deleteProperty(req.headers, HIT_HEADER);
-                    try {
+                if (resource) {
+                    // Validate the intent before going any further. This is to avoid misuse of the
+                    // idempotency key function. This could also lead to security vulnerability
+                    // because someone could send random key to get response.
+                    if (
+                        !this._options.intentValidator.isValidIntent(
+                            req,
+                            resource.request
+                        )
+                    ) {
+                        // Invalid intent. Client must correct his request.
+                        res.status(HttpStatus.EXPECTATION_FAILED);
+                        safeNext(new IdempotencyIntentMismatchError());
+                    } else if (this.isLeaseExpired(resource)) {
+                        // Orphaned in-progress resource: a previous request started but never
+                        // persisted its response. Take over processing — this is a fresh
+                        // execution, not a hit.
                         await this._options.dataAdapter.delete(idempotencyKey);
                         const newResource: IdempotencyResource = {
                             idempotencyKey,
                             request: this.convertToIdempotencyRequest(req),
                             createdAt: new Date(),
                         };
-                        await this.startProcessing(res, newResource, next);
-                    } catch {
-                        // Takeover lost (concurrent retry won the create constraint) or
-                        // delete failed — fall back to the standard 409.
-                        const conflictError = new Error(
-                            'A previous request is still in progress for this key.'
+                        await this.startProcessingOrConflict(
+                            res,
+                            newResource,
+                            safeNext
                         );
-                        res.status(HttpStatus.CONFLICT);
-                        next(conflictError);
+                    } else {
+                        const availableResponse = resource.response;
+                        if (availableResponse) {
+                            // A cached response is available: this request is an
+                            // idempotency hit. Tracked server-side (not via a request
+                            // header) so a client cannot spoof a hit.
+                            this._hits.add(req);
+                            // Set original headers
+                            for (const header of Object.keys(
+                                availableResponse.headers
+                            )) {
+                                res.setHeader(
+                                    header,
+                                    availableResponse.headers[header]
+                                );
+                            }
+                            // Send saved response if available
+                            res.status(availableResponse.statusCode).send(
+                                availableResponse.body
+                            );
+                            safeNext();
+                        } else {
+                            // Previous request in progress
+                            res.status(HttpStatus.CONFLICT);
+                            safeNext(new IdempotencyConflictError());
+                        }
                     }
                 } else {
-                    const availableResponse = resource.response;
-                    if (availableResponse) {
-                        // Set original headers
-                        for (const header of Object.keys(
-                            availableResponse.headers
-                        )) {
-                            res.setHeader(
-                                header,
-                                availableResponse.headers[header]
-                            );
-                        }
-                        // Send saved response if available
-                        res.status(availableResponse.statusCode).send(
-                            availableResponse.body
-                        );
-                        next();
-                    } else {
-                        // Previous request in progress
-                        const conflictError = new Error(
-                            'A previous request is still in progress for this key.'
-                        );
-                        res.status(HttpStatus.CONFLICT);
-                        next(conflictError);
-                    }
+                    // No resource, so initiate the idempotency process
+                    const newResource: IdempotencyResource = {
+                        idempotencyKey,
+                        request: this.convertToIdempotencyRequest(req),
+                        createdAt: new Date(),
+                    };
+                    await this.startProcessingOrConflict(
+                        res,
+                        newResource,
+                        safeNext
+                    );
                 }
             } else {
-                // No resource, so initiate the idempotency process
-                const newResource: IdempotencyResource = {
-                    idempotencyKey,
-                    request: this.convertToIdempotencyRequest(req),
-                    createdAt: new Date(),
-                };
-                await this.startProcessing(res, newResource, next);
+                safeNext();
             }
-        } else {
-            next();
+        } catch (err) {
+            // Any unexpected adapter/validator failure is forwarded to Express
+            // rather than becoming an unhandled rejection.
+            safeNext(err);
         }
     }
 
@@ -170,7 +194,7 @@ export class IdempotencyService {
      * @param req Request to validate hit
      */
     public isHit(req: express.Request): boolean {
-        return req.get(HIT_HEADER) === HIT_VALUE;
+        return this._hits.has(req);
     }
 
     /**
@@ -284,7 +308,7 @@ export class IdempotencyService {
                         }
                     }
                 } catch (err) {
-                    console.log(
+                    this.logWarning(
                         'Error while validating response for persistence.'
                     );
                     throw err;
@@ -292,14 +316,14 @@ export class IdempotencyService {
             })
             .catch(async () => {
                 try {
-                    console.log(
+                    this.logWarning(
                         'Something went wrong, try to remove idempotency...'
                     );
                     if (await this.canStillPersist(resource)) {
                         await this._options.dataAdapter.delete(idempotencyKey);
                     }
                 } catch {
-                    console.log(
+                    this.logWarning(
                         'Error while removing idempotency key during failing hook.'
                     );
                 }
@@ -358,18 +382,42 @@ export class IdempotencyService {
     }
 
     /**
-     * Initiate processing for a new (or taken-over) resource: persist it, set up
-     * response hooks, and call next.
+     * Initiate processing for a new (or taken-over) resource, translating a failed
+     * `create` into the correct outcome.
+     *
+     * `findByIdempotencyKey` then `create` is not atomic, so two strictly
+     * concurrent requests with the same key can both reach `create`; the loser
+     * gets a duplicate-key rejection from the data adapter. Rather than letting
+     * that bubble up as a `500`, we re-check the store: if a resource now exists,
+     * a concurrent request won the race and we surface the standard `409`
+     * Conflict; otherwise the failure is a genuine adapter outage and is
+     * propagated unchanged. This makes the adapter's unique constraint — not a
+     * lucky read — the real concurrency guarantee.
      * @param res Express response
      * @param resource Freshly built resource (with createdAt stamped)
-     * @param next Express next function
+     * @param next Guarded next function from the caller (safeNext)
      */
-    private async startProcessing(
+    private async startProcessingOrConflict(
         res: express.Response,
         resource: IdempotencyResource,
         next: express.NextFunction
     ): Promise<void> {
-        await this._options.dataAdapter.create(resource);
+        try {
+            await this._options.dataAdapter.create(resource);
+        } catch (err) {
+            const existing = await this._options.dataAdapter
+                .findByIdempotencyKey(resource.idempotencyKey)
+                .catch(() => null);
+            if (existing) {
+                // A concurrent request won the unique-key constraint.
+                res.status(HttpStatus.CONFLICT);
+                next(new IdempotencyConflictError());
+            } else {
+                // No resource present: a real adapter failure, not a race.
+                next(err);
+            }
+            return;
+        }
         this.setupHooks(res, resource);
         next();
     }

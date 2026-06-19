@@ -194,5 +194,21 @@ export function runIdempotencySuite(
             built.controls.release('/slow#1');
             await pA;
         });
+
+        it('S11 — a client-supplied x-hit header on a fresh key is ignored (anti-spoof)', async () => {
+            await start();
+            const key = genKey();
+            // If the hit marker were derived from this header, the handler would
+            // skip responding and the request would hang until the safety
+            // timeout. The hit is tracked server-side, so the spoof is ignored.
+            const r = await ctx.request({
+                path: '/resource',
+                key,
+                headers: { 'x-hit': 'true' },
+            });
+            assert.equal(r.status, 200);
+            assert.equal(r.body.callCount, 1);
+            assert.equal(built.controls.count('/resource'), 1);
+        });
     });
 }

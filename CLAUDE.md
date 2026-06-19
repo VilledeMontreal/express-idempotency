@@ -36,19 +36,19 @@ Suite de bout en bout dans `tests/e2e/` (**hors `src/`** → exclue de la couver
 
 - `tests/e2e/harness/` — harness réutilisable : `buildApp(options?)` (app + routes instrumentées + error handler), `startServer(app)` (port 0 + mode standalone, draine les requêtes in-flight au close), `controls` (gates déterministes, compteurs d'exécution, traçage des `delete`), `runIdempotencySuite(makeApp)` rejouable sur n'importe quel data adapter.
 - `tests/e2e/inmemory.e2e.test.ts` — exécute la suite sur l'`InMemoryDataAdapter` par défaut.
-- **Contrat error-handler** : le middleware fait `res.status(409|417); next(err)` ; un error handler Express explicite (présent dans `buildApp`) est requis pour propager ces codes, sinon Express renvoie 500.
+- **Erreurs typées** : le middleware fait `res.status(409|417)` puis `next(err)` avec une erreur exportée portant `statusCode`/`status` (`IdempotencyConflictError` 409, `IdempotencyIntentMismatchError` 417, base `IdempotencyError`) ; Express en dérive le bon code nativement, **même sans error handler**. Le handler de `buildApp` (désactivable via `withErrorHandler: false`) sert de référence pour mettre en forme le corps.
 - Lancé en CI par un job CircleCI dédié `e2e` ; `package` est gaté sur `test` + `e2e`. Le `pre-push` Husky ne lance PAS les e2e (CI-only).
 
 ## Architecture
 
-Six fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barrel).
+Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barrel). **`errors/idempotencyErrors.ts`** exporte `IdempotencyError` et ses sous-classes `IdempotencyConflictError` (409) / `IdempotencyIntentMismatchError` (417), portées par le middleware sur les chemins 409/417.
 
 **`middleware/idempotency.ts`** — factory `idempotency(options?)` qui instancie un `IdempotencyService` stocké dans une variable de module (**singleton process-wide** : un second appel à la factory écrase le premier) et retourne sa fonction middleware. Les route handlers récupèrent le service via `getSharedIdempotencyService()`.
 
 **`services/idempotencyService.ts`** — toute la logique. Flux du middleware :
 
 1. Pas de header `idempotency-key` → `next()` passthrough total.
-2. Clé présente + resource existante → injection de `x-hit: true` dans `req.headers`, puis validation d'intention ; si intention invalide → 417 ; si réponse cachée disponible → replay (statut + body + headers whitelistés) puis `next()` ; si traitement encore en cours (resource sans réponse) → 409.
+2. Clé présente + resource existante → marquage interne du hit (`WeakSet` sur l'instance de service, non spoofable), puis validation d'intention ; si intention invalide → 417 ; si réponse cachée disponible → replay (statut + body + headers whitelistés) puis `next()` ; si traitement encore en cours (resource sans réponse) → 409.
 3. Clé présente + aucune resource → `create` de la resource, hook sur `res.send`, `next()` ; à l'envoi de la réponse, persistance **fire-and-forget** (`update` si le responseValidator accepte, `delete` sinon).
 
 **`models/models.ts`** — trois interfaces de stratégie injectables via `IdempotencyOptions`, avec leurs défauts dans `src/defaults/` :
@@ -63,15 +63,15 @@ Six fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barre
 
 ## Invariants de design (ne pas « corriger »)
 
-- **Le middleware appelle toujours `next()`**, même après avoir rejoué une réponse cachée. C'est voulu (préserver la chaîne de middlewares) : le contrat impose aux handlers d'appeler `isHit(req)` et de `return` si true, et `reportError(req)` en cas d'échec métier (supprime la clé pour permettre un retry).
+- **Le middleware appelle toujours `next()`**, même après avoir rejoué une réponse cachée. C'est voulu (préserver la chaîne de middlewares) : le contrat impose aux handlers d'appeler `isHit(req)` et de `return` si true, et `reportError(req)` en cas d'échec métier (supprime la clé pour permettre un retry). Le corps est enveloppé dans un `try/catch` avec sentinelle `safeNext` : un `next` au plus, et toute erreur adapter/validator est transmise via `next(err)` (jamais d'unhandled rejection).
 - **La capture de réponse passe par un monkey-patch de `res.send`** (`sendHook`). `res.json` et `res.sendStatus` délèguent à `send` donc sont couverts ; `res.end` direct et le streaming ne le sont pas — limitation connue.
 - **Seul `content-type` est rejoué** parmi les headers de la réponse cachée (whiteliste dans `buildIdempotencyResponse`).
 - **`@boundClass` (autobind-decorator) sur `IdempotencyService`** est nécessaire : la fonction middleware est passée détachée de son instance.
 
 ## Pièges connus
 
-- Le header `x-hit` est lu depuis la requête (`isHit`) : il est spoofable par un client — en tenir compte dans toute évolution de ce mécanisme.
-- `findByIdempotencyKey` puis `create` n'est pas atomique : la garantie d'unicité sous concurrence repose sur le data adapter.
+- Le hit est marqué via un `WeakSet` côté serveur (`isHit` lit ce set, pas un header) : non spoofable. Un `x-hit` envoyé par le client est ignoré.
+- `findByIdempotencyKey` puis `create` n'est pas atomique : la garantie d'unicité sous concurrence repose sur le data adapter. Un échec de `create` est rejoué par un re-fetch (`startProcessingOrConflict`) → resource présente = 409, absente = erreur propagée.
 - `convertToIdempotencyRequest` persiste **tous** les headers de la requête originale (y compris `Authorization`).
 - TypeScript : `strict: true` mais `strictNullChecks: false` et `noImplicitAny: false` — ne pas supposer la null-safety.
 
