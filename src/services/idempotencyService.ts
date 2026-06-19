@@ -123,10 +123,33 @@ export class IdempotencyService {
                         // Invalid intent. Client must correct his request.
                         res.status(HttpStatus.EXPECTATION_FAILED);
                         safeNext(new IdempotencyIntentMismatchError());
+                    } else if (resource.response) {
+                        // A cached response is available: this request is an idempotency
+                        // hit, so replay it. A completed resource is never an orphan — no
+                        // matter how old its createdAt is — so the cached response always
+                        // wins over the lease/takeover path below, which only applies to
+                        // in-progress resources. Hit tracked server-side (not via a request
+                        // header) so a client cannot spoof a hit.
+                        const availableResponse = resource.response;
+                        this._hits.add(req);
+                        // Set original headers
+                        for (const header of Object.keys(
+                            availableResponse.headers
+                        )) {
+                            res.setHeader(
+                                header,
+                                availableResponse.headers[header]
+                            );
+                        }
+                        // Send saved response
+                        res.status(availableResponse.statusCode).send(
+                            availableResponse.body
+                        );
+                        safeNext();
                     } else if (this.isLeaseExpired(resource)) {
-                        // Orphaned in-progress resource: a previous request started but never
-                        // persisted its response. Take over processing — this is a fresh
-                        // execution, not a hit.
+                        // Orphaned in-progress resource (no response persisted): a previous
+                        // request started but never persisted its response. Take over
+                        // processing — this is a fresh execution, not a hit.
                         await this._options.dataAdapter.delete(idempotencyKey);
                         const newResource: IdempotencyResource = {
                             idempotencyKey,
@@ -139,31 +162,9 @@ export class IdempotencyService {
                             safeNext
                         );
                     } else {
-                        const availableResponse = resource.response;
-                        if (availableResponse) {
-                            // A cached response is available: this request is an
-                            // idempotency hit. Tracked server-side (not via a request
-                            // header) so a client cannot spoof a hit.
-                            this._hits.add(req);
-                            // Set original headers
-                            for (const header of Object.keys(
-                                availableResponse.headers
-                            )) {
-                                res.setHeader(
-                                    header,
-                                    availableResponse.headers[header]
-                                );
-                            }
-                            // Send saved response if available
-                            res.status(availableResponse.statusCode).send(
-                                availableResponse.body
-                            );
-                            safeNext();
-                        } else {
-                            // Previous request in progress
-                            res.status(HttpStatus.CONFLICT);
-                            safeNext(new IdempotencyConflictError());
-                        }
+                        // Previous request still in progress.
+                        res.status(HttpStatus.CONFLICT);
+                        safeNext(new IdempotencyConflictError());
                     }
                 } else {
                     // No resource, so initiate the idempotency process

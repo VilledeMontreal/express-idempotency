@@ -358,6 +358,37 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         assert.equal(replayRes._getData(), 'takeover-body');
     });
 
+    it('cached response is replayed after the lease expires — a completed resource is never taken over', async () => {
+        const clock = sinon.useFakeTimers({
+            now: Date.now(),
+            toFake: ['Date'],
+        });
+        const svc = makeService(5000);
+        const originalReq = createRequest();
+
+        // First request creates the resource and persists its response.
+        const firstReq = createCloneRequest(originalReq);
+        const firstRes = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(firstReq, firstRes, sinon.spy());
+        firstRes.send('cached-body');
+        await wait(1);
+
+        // Advance well past the processing timeout. The resource is complete (a
+        // response is cached), so it is NOT an orphan: the retry must replay the
+        // cached response, never take over and reprocess the request.
+        clock.tick(60000);
+
+        const replayReq = createCloneRequest(originalReq);
+        const replayRes = httpMocks.createResponse();
+        const replayNext = sinon.spy();
+        await svc.provideMiddlewareFunction(replayReq, replayRes, replayNext);
+
+        assert.isTrue(replayNext.calledOnce);
+        assert.isTrue(svc.isHit(replayReq));
+        assert.equal(replayRes.statusCode, HttpStatus.OK);
+        assert.equal(replayRes._getData(), 'cached-body');
+    });
+
     it('resource without createdAt (legacy adapter) — returns 409 even if timeout enabled', async () => {
         const clock = sinon.useFakeTimers({
             now: Date.now(),
