@@ -203,7 +203,7 @@ curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
 curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
 ```
 
-> **Error-handler contract:** the middleware signals conflicts and misuse by setting the status (`409` / `417`) and calling `next(err)`. Your app must register an Express error handler that honours the already-set `res.statusCode`, otherwise Express emits a generic `500`. See `tests/e2e/harness/buildApp.ts` for a reference handler.
+> **Error handling:** the middleware signals conflicts and misuse by calling `next(err)` with a typed error — `IdempotencyConflictError` (`409`) or `IdempotencyIntentMismatchError` (`417`). Both extend the exported `IdempotencyError` and carry the HTTP status on `statusCode` (and `status`), so Express derives the correct code natively — no custom error handler required. Registering one is still recommended to shape the response body; it can branch on the error type with `instanceof` or read `err.statusCode`. See `tests/e2e/harness/buildApp.ts` for a reference handler.
 
 ### Reusing the suite for custom adapters
 
@@ -421,7 +421,7 @@ curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
 curl -H 'Idempotency-Key: demo-1' http://localhost:8080/resource
 ```
 
-> **Contrat du gestionnaire d'erreurs :** le middleware signale les conflits et les mésusages en positionnant le statut (`409` / `417`) puis en appelant `next(err)`. Votre application doit enregistrer un gestionnaire d'erreurs Express qui respecte le `res.statusCode` déjà positionné, sinon Express renvoie un `500` générique. Voir `tests/e2e/harness/buildApp.ts` pour un gestionnaire de référence.
+> **Gestion des erreurs :** le middleware signale les conflits et les mésusages en appelant `next(err)` avec une erreur typée — `IdempotencyConflictError` (`409`) ou `IdempotencyIntentMismatchError` (`417`). Toutes deux héritent de l'erreur exportée `IdempotencyError` et portent le statut HTTP sur `statusCode` (et `status`), de sorte qu'Express en dérive nativement le bon code — aucun gestionnaire d'erreurs personnalisé n'est requis. En enregistrer un reste recommandé pour mettre en forme le corps de la réponse ; il peut discriminer le type d'erreur avec `instanceof` ou lire `err.statusCode`. Voir `tests/e2e/harness/buildApp.ts` pour un gestionnaire de référence.
 
 ### Réutiliser la suite pour des adapteurs personnalisés
 

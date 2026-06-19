@@ -7,14 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-06-19
+
 ### Added
 
+- Typed, exported error classes — `IdempotencyError` (base) and its subclasses `IdempotencyConflictError` (`409`) and `IdempotencyIntentMismatchError` (`417`) — carrying the HTTP status on both `statusCode` and `status`. Consumers can branch on the concrete type with `instanceof`. (issue #34)
 - `processingTimeout` option (milliseconds): lease mechanism that allows a retry to take over processing of an in-progress resource after the timeout elapses, preventing permanent `409` locks caused by orphaned requests (crash, OOM, rollout). Opt-in; disabled when absent or `<= 0`. Requires the data adapter to persist and return `IdempotencyResource.createdAt`. (issue #32)
 - `IdempotencyResource.createdAt` field (`Date | number`, optional): timestamp stamped unconditionally by the middleware at resource creation. Used by the `processingTimeout` lease mechanism; absent value degrades safely to the v2.0.0 behaviour.
 - End-to-end test suite (`npm run test:e2e`) exercising the middleware over a real HTTP server (Express + native `fetch`): replay/hit, `409` in-progress conflict, concurrent retries, `processingTimeout` takeover, zombie-write guard, phantom-key cleanup (`res.end` bypass), intent mismatch (`417`) and `reportError`. Factored as `runIdempotencySuite` for reuse across data adapters, runnable standalone via `npm run e2e:serve`, and wired as a dedicated CI job.
 
 ### Fixed
 
+- The distribution build now emits a flat `dist/` layout. Adding the e2e suite under `tests/` had widened TypeScript's inferred `rootDir` to the project root, so `tsc --build tsconfig.dist.json` emitted `dist/src/**` (and bundled `dist/tests/**` into the package), breaking `main`/`typings` (`dist/index.js`, `dist/index.d.ts`) and the `express-idempotency/dist/middleware/idempotency` deep import. The build is now scoped to `src/` via `include` and an explicit `rootDir`. (issue #32)
+- Conflicts (`409`) and intent mismatches (`417`) no longer surface as a generic `500` when the application registers no Express error handler: the forwarded errors now carry a status code that Express derives natively. A custom handler remains recommended to shape the response body. (issue #34)
+- The async middleware now wraps its body in a `try/catch` and forwards adapter/validator rejections via `next(err)` instead of leaking an unhandled promise rejection — which, under Express 4, would leave the request hanging. A lost `create` race now maps to `409` when a re-fetch confirms a concurrent winner, while a genuine adapter outage is propagated unchanged instead of being masked. (issue #33)
+- The idempotency hit marker is no longer derived from a client-controlled `x-hit` request header (spoofable — a forged value made route handlers skip their response, a denial-of-service primitive). It is now tracked server-side via a `WeakSet` keyed on the request object; the public `isHit(req)` API is unchanged. (issue #35)
 - Resources left in-progress when the response bypasses `res.send` (e.g. `res.end()`, streaming, `sendFile`) are now automatically deleted on the `finish` event, allowing the next retry to be reprocessed instead of receiving a permanent `409`.
 - `InMemoryDataAdapter.update` no longer creates a phantom `"-1"` property on the internal array when called with an unknown key; it is now a no-op, aligned with MongoDB `updateOne` semantics.
 

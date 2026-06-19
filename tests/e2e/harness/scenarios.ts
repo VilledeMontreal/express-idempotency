@@ -194,5 +194,39 @@ export function runIdempotencySuite(
             built.controls.release('/slow#1');
             await pA;
         });
+
+        it('S11 — a client-supplied x-hit header on a fresh key is ignored (anti-spoof)', async () => {
+            await start();
+            const key = genKey();
+            // If the hit marker were derived from this header, the handler would
+            // skip responding and the request would hang until the safety
+            // timeout. The hit is tracked server-side, so the spoof is ignored.
+            const r = await ctx.request({
+                path: '/resource',
+                key,
+                headers: { 'x-hit': 'true' },
+            });
+            assert.equal(r.status, 200);
+            assert.equal(r.body.callCount, 1);
+            assert.equal(built.controls.count('/resource'), 1);
+        });
+
+        it('S12 — replays a cached response even after processingTimeout elapses (completed resource is never taken over)', async () => {
+            await start({ processingTimeout: 250 });
+            const key = genKey();
+            // First request completes and caches its response.
+            const r1 = await ctx.request({ path: '/resource', key });
+            assert.equal(r1.status, 200);
+            assert.equal(built.controls.count('/resource'), 1);
+            // Wait past the lease. A completed resource is not an orphan: the
+            // retry must replay the cached response, not take over and
+            // re-execute the handler (which would break idempotency for any
+            // retry arriving later than processingTimeout).
+            await wait(400); // exceed the 250ms lease
+            const r2 = await ctx.request({ path: '/resource', key });
+            assert.equal(r2.status, 200);
+            assert.deepEqual(r2.body, r1.body);
+            assert.equal(built.controls.count('/resource'), 1); // no re-execution
+        });
     });
 }

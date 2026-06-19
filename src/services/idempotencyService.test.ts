@@ -10,6 +10,10 @@ import {
 } from '../models/models';
 import * as httpMocks from 'node-mocks-http';
 import { IdempotencyService } from './idempotencyService';
+import {
+    IdempotencyConflictError,
+    IdempotencyIntentMismatchError,
+} from '../errors/idempotencyErrors';
 import * as express from 'express';
 import sinon from 'sinon';
 import * as HttpStatus from 'http-status-codes';
@@ -50,7 +54,7 @@ describe('Idempotency service', () => {
     it('returns same response for same idempotency key', async () => {
         const originalReq = createRequest();
 
-        // First request, which generate a idempotency resource
+        // First request, which generates an idempotency resource (in progress).
         const firstReq = createCloneRequest(originalReq);
         const firstRes = httpMocks.createResponse();
         const firstNextSpy = sinon.spy();
@@ -60,29 +64,28 @@ describe('Idempotency service', () => {
             firstNextSpy
         );
         assert.isTrue(firstNextSpy.called);
-        // Simulate route. When calling res.json, it will call eventually send.
-        firstRes.send('test');
 
-        // Intermediate request, which should generate a conflict
-        // because the first one is not completed
+        // Intermediate request while the first is still in progress -> 409.
         const conflictReq = createCloneRequest(originalReq);
         const conflictRes = httpMocks.createResponse();
         const conflictNextSpy = sinon.spy();
-        try {
-            await idempotencyService.provideMiddlewareFunction(
-                conflictReq,
-                conflictRes,
-                conflictNextSpy
-            );
-            assert.fail('Expected conflict error');
-        } catch (err) {
-            assert.ok(err);
-        }
+        await idempotencyService.provideMiddlewareFunction(
+            conflictReq,
+            conflictRes,
+            conflictNextSpy
+        );
+        assert.isTrue(conflictNextSpy.calledOnce);
+        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.instanceOf(
+            conflictNextSpy.firstCall.args[0],
+            IdempotencyConflictError
+        );
 
-        // Second request
-        // Must wait to allow node to handle message which came from the first request
+        // First request now completes by sending its response.
+        firstRes.send('test');
+
+        // Second request: wait so the persisted response becomes available.
         await wait(1);
-        // Now, the idempotency response is available
         const secondReq = createCloneRequest(originalReq);
         const secondRes = httpMocks.createResponse();
         const secondNextSpy = sinon.spy();
@@ -106,19 +109,20 @@ describe('Idempotency service', () => {
             nextFunc
         );
         assert.isTrue(nextFunc.called);
-        idempotencyService.reportError(req);
+        await idempotencyService.reportError(req);
         await wait(1);
 
-        try {
-            await idempotencyService.provideMiddlewareFunction(
-                req,
-                httpMocks.createResponse(),
-                sinon.mock()
-            );
-            assert.isFalse(idempotencyService.isHit(req));
-        } catch (err) {
-            assert.fail('Expected not to throw any error.');
-        }
+        // After reportError the key is released: the retry is reprocessed
+        // (not a hit) and no error is propagated to next.
+        const retryNext = sinon.spy();
+        await idempotencyService.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            retryNext
+        );
+        assert.isTrue(retryNext.calledOnce);
+        assert.isUndefined(retryNext.firstCall.args[0]);
+        assert.isFalse(idempotencyService.isHit(req));
     });
 
     it('indicates misuse of the idempotency key', async () => {
@@ -144,24 +148,23 @@ describe('Idempotency service', () => {
             sinon.spy()
         );
         await wait(1);
-        try {
-            await idempotencyService.provideMiddlewareFunction(
-                req2,
-                httpMocks.createResponse(),
-                sinon.spy()
-            );
-            assert.fail('Expected error thrown for idempotency key misuse');
-        } catch (err) {
-            assert.ok(err);
-        }
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await idempotencyService.provideMiddlewareFunction(req2, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.equal(res.statusCode, HttpStatus.EXPECTATION_FAILED);
+        assert.instanceOf(
+            next.firstCall.args[0],
+            IdempotencyIntentMismatchError
+        );
     });
 
     it('ignores response if not valid for persistence', async () => {
         const req = createRequest();
         let res = httpMocks.createResponse();
-        const persistanceValidationStud = sinon
-            .stub(responseValidator, 'isValidForPersistence')
-            .returns(false);
+        sinon.stub(responseValidator, 'isValidForPersistence').returns(false);
 
         await idempotencyService.provideMiddlewareFunction(
             req,
@@ -181,40 +184,37 @@ describe('Idempotency service', () => {
         assert.isFalse(idempotencyService.isHit(req));
     });
 
-    it('handles correctly error while persisting resource', async () => {
+    it('handles a persistence error gracefully without crashing the middleware', async () => {
         const req = createRequest();
         const res = httpMocks.createResponse();
-        const dataAdapterStub = sinon
-            .stub(dataAdapter, 'delete')
-            .throws('Doh!');
-        const persistanceValidationStud = sinon
-            .stub(responseValidator, 'isValidForPersistence')
-            .returns(false);
+        sinon.stub(dataAdapter, 'delete').rejects(new Error('Doh!'));
+        sinon.stub(responseValidator, 'isValidForPersistence').returns(false);
+        const warnSpy = sinon.stub(console, 'warn');
 
-        try {
-            await idempotencyService.provideMiddlewareFunction(
-                req,
-                res,
-                sinon.mock()
-            );
-            res.send('something');
-            await wait(1);
-            assert.fail('Expected error to be thrown');
-        } catch (err) {
-            assert.ok(err);
-        }
+        // The middleware resolves and calls next; the failed cleanup is
+        // swallowed by the fire-and-forget hook (only logged).
+        const next = sinon.spy();
+        await idempotencyService.provideMiddlewareFunction(req, res, next);
+        res.send('something');
+        await wait(1);
 
+        assert.isTrue(next.calledOnce);
+        assert.isTrue(
+            warnSpy.called,
+            'the persistence failure should be logged'
+        );
+
+        // reportError surfaces the adapter failure to its caller.
+        let rejected = false;
         try {
-            await idempotencyService.provideMiddlewareFunction(
-                req,
-                res,
-                sinon.mock()
-            );
             await idempotencyService.reportError(req);
-            assert.fail('Expected error to be thrown');
-        } catch (err) {
-            assert.ok(err);
+        } catch {
+            rejected = true;
         }
+        assert.isTrue(
+            rejected,
+            'reportError should reject when the adapter fails'
+        );
     });
 });
 
@@ -356,6 +356,37 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         assert.isTrue(replayNext.calledOnce);
         assert.isTrue(svc.isHit(replayReq));
         assert.equal(replayRes._getData(), 'takeover-body');
+    });
+
+    it('cached response is replayed after the lease expires — a completed resource is never taken over', async () => {
+        const clock = sinon.useFakeTimers({
+            now: Date.now(),
+            toFake: ['Date'],
+        });
+        const svc = makeService(5000);
+        const originalReq = createRequest();
+
+        // First request creates the resource and persists its response.
+        const firstReq = createCloneRequest(originalReq);
+        const firstRes = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(firstReq, firstRes, sinon.spy());
+        firstRes.send('cached-body');
+        await wait(1);
+
+        // Advance well past the processing timeout. The resource is complete (a
+        // response is cached), so it is NOT an orphan: the retry must replay the
+        // cached response, never take over and reprocess the request.
+        clock.tick(60000);
+
+        const replayReq = createCloneRequest(originalReq);
+        const replayRes = httpMocks.createResponse();
+        const replayNext = sinon.spy();
+        await svc.provideMiddlewareFunction(replayReq, replayRes, replayNext);
+
+        assert.isTrue(replayNext.calledOnce);
+        assert.isTrue(svc.isHit(replayReq));
+        assert.equal(replayRes.statusCode, HttpStatus.OK);
+        assert.equal(replayRes._getData(), 'cached-body');
     });
 
     it('resource without createdAt (legacy adapter) — returns 409 even if timeout enabled', async () => {
@@ -535,38 +566,116 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         assert.isTrue(conflictNext.calledOnce);
     });
 
-    it('create throws at takeover — falls back to 409 with no unhandled rejection', async () => {
+    it('create lost-race at takeover — re-fetch finds a winner, returns 409', async () => {
         const clock = sinon.useFakeTimers({
             now: Date.now(),
             toFake: ['Date'],
         });
         const svc = makeService(5000);
         const req = createRequest();
+        const fakeResource: IdempotencyResource = {
+            idempotencyKey: req.get('idempotency-key'),
+            request: {
+                url: req.url,
+                method: req.method,
+                body: {},
+                headers: req.headers,
+                query: {},
+            },
+            createdAt: Date.now(),
+        };
 
-        await svc.provideMiddlewareFunction(
-            req,
-            httpMocks.createResponse(),
-            sinon.spy()
-        );
+        // find #1 → expired resource (triggers takeover);
+        // find #2 → re-fetch after the failed create still finds a resource,
+        // proving a concurrent request won the unique-key constraint.
+        const stubFind = sinon.stub(dataAdapter, 'findByIdempotencyKey');
+        stubFind.resolves(fakeResource);
+        sinon.stub(dataAdapter, 'delete').resolves();
+        sinon.stub(dataAdapter, 'create').rejects(new Error('Duplicate'));
+
+        clock.tick(6000); // lease expires
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+
+        // Must not throw / produce an unhandled rejection
+        await svc.provideMiddlewareFunction(req, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        assert.instanceOf(next.firstCall.args[0], IdempotencyConflictError);
+    });
+
+    it('create fails at takeover with no winner — propagates the adapter error (not 409)', async () => {
+        const clock = sinon.useFakeTimers({
+            now: Date.now(),
+            toFake: ['Date'],
+        });
+        const svc = makeService(5000);
+        const req = createRequest();
+        const fakeResource: IdempotencyResource = {
+            idempotencyKey: req.get('idempotency-key'),
+            request: {
+                url: req.url,
+                method: req.method,
+                body: {},
+                headers: req.headers,
+                query: {},
+            },
+            createdAt: Date.now(),
+        };
+        const adapterError = new Error('adapter down');
+
+        // find #1 → expired resource (takeover); find #2 (re-fetch) → null,
+        // i.e. a genuine adapter outage rather than a race.
+        const stubFind = sinon.stub(dataAdapter, 'findByIdempotencyKey');
+        stubFind.onFirstCall().resolves(fakeResource);
+        stubFind.onSecondCall().resolves(null);
+        sinon.stub(dataAdapter, 'delete').resolves();
+        sinon.stub(dataAdapter, 'create').rejects(adapterError);
 
         clock.tick(6000);
 
-        // Make create throw to simulate lost race condition
-        sinon.stub(dataAdapter, 'create').rejects(new Error('Duplicate'));
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(req, res, next);
 
-        const fallbackNext = sinon.spy();
-        const fallbackRes = httpMocks.createResponse();
-        const fallbackReq = createCloneRequest(req);
+        assert.isTrue(next.calledOnce);
+        assert.strictEqual(next.firstCall.args[0], adapterError);
+        assert.notInstanceOf(next.firstCall.args[0], IdempotencyConflictError);
+        assert.notEqual(res.statusCode, HttpStatus.CONFLICT);
+    });
 
-        // Must not throw / produce unhandled rejection
-        await svc.provideMiddlewareFunction(
-            fallbackReq,
-            fallbackRes,
-            fallbackNext
-        );
+    it('delete failure at takeover — propagates the adapter error to next(err)', async () => {
+        const clock = sinon.useFakeTimers({
+            now: Date.now(),
+            toFake: ['Date'],
+        });
+        const svc = makeService(5000);
+        const req = createRequest();
+        const fakeResource: IdempotencyResource = {
+            idempotencyKey: req.get('idempotency-key'),
+            request: {
+                url: req.url,
+                method: req.method,
+                body: {},
+                headers: req.headers,
+                query: {},
+            },
+            createdAt: Date.now(),
+        };
+        const deleteError = new Error('delete failed');
+        sinon.stub(dataAdapter, 'findByIdempotencyKey').resolves(fakeResource);
+        sinon.stub(dataAdapter, 'delete').rejects(deleteError);
 
-        assert.isTrue(fallbackNext.calledOnce);
-        assert.equal(fallbackRes.statusCode, HttpStatus.CONFLICT);
+        clock.tick(6000); // lease expires -> takeover attempts the delete
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(req, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.strictEqual(next.firstCall.args[0], deleteError);
     });
 
     it('lease expired + intent divergent — returns 417, no takeover', async () => {
@@ -753,5 +862,201 @@ describe('Idempotency service — finish hook (res.end bypass)', () => {
             warnSpy.called,
             'warn should not be emitted on normal send path'
         );
+    });
+});
+
+describe('Idempotency service — error typing, async guard & hit spoofing (#33/#34/#35)', () => {
+    let dataAdapter: InMemoryDataAdapter = null;
+
+    afterEach(() => {
+        sinon.restore();
+    });
+
+    function makeService(): IdempotencyService {
+        dataAdapter = new InMemoryDataAdapter();
+        return new IdempotencyService({
+            idempotencyKeyHeader: 'idempotency-key',
+            intentValidator: new DefaultIntentValidator(),
+            dataAdapter,
+            responseValidator: new SuccessfulResponseValidator(),
+        });
+    }
+
+    // #34 — conflicts and intent mismatches carry HTTP status metadata.
+    it('intent mismatch surfaces a 417 IdempotencyIntentMismatchError', async () => {
+        const svc = makeService();
+        const key = faker.string.uuid();
+        const req1 = httpMocks.createRequest({
+            url: 'https://endpoint-a',
+            method: 'POST',
+            headers: { 'idempotency-key': key },
+        });
+        const req2 = httpMocks.createRequest({
+            url: 'https://endpoint-b',
+            method: 'POST',
+            headers: { 'idempotency-key': key },
+        });
+
+        await svc.provideMiddlewareFunction(
+            req1,
+            httpMocks.createResponse(),
+            sinon.spy()
+        );
+        await wait(1);
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(req2, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.equal(res.statusCode, HttpStatus.EXPECTATION_FAILED);
+        const err = next.firstCall.args[0];
+        assert.instanceOf(err, IdempotencyIntentMismatchError);
+        assert.equal(err.statusCode, HttpStatus.EXPECTATION_FAILED);
+        assert.equal(err.status, HttpStatus.EXPECTATION_FAILED);
+    });
+
+    it('in-progress conflict surfaces a 409 IdempotencyConflictError', async () => {
+        const svc = makeService();
+        const req = createRequest();
+
+        await svc.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            sinon.spy()
+        );
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(createCloneRequest(req), res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        const err = next.firstCall.args[0];
+        assert.instanceOf(err, IdempotencyConflictError);
+        assert.equal(err.statusCode, HttpStatus.CONFLICT);
+        assert.equal(err.status, HttpStatus.CONFLICT);
+    });
+
+    // #33 — concurrent create race on the initial (no-resource) branch.
+    it('initial create lost-race — re-fetch finds a winner, returns 409 (no unhandled rejection)', async () => {
+        const svc = makeService();
+        const req = createRequest();
+        const winner: IdempotencyResource = {
+            idempotencyKey: req.get('idempotency-key'),
+            request: {
+                url: req.url,
+                method: req.method,
+                body: {},
+                headers: req.headers,
+                query: {},
+            },
+        };
+        const stubFind = sinon.stub(dataAdapter, 'findByIdempotencyKey');
+        stubFind.onFirstCall().resolves(null); // no resource → initial create branch
+        stubFind.onSecondCall().resolves(winner); // re-fetch after failed create → race
+        sinon.stub(dataAdapter, 'create').rejects(new Error('Duplicate'));
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(req, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        assert.instanceOf(next.firstCall.args[0], IdempotencyConflictError);
+    });
+
+    it('initial create fails with no winner — propagates the adapter error', async () => {
+        const svc = makeService();
+        const req = createRequest();
+        const adapterError = new Error('adapter down');
+        const stubFind = sinon.stub(dataAdapter, 'findByIdempotencyKey');
+        stubFind.onFirstCall().resolves(null);
+        stubFind.onSecondCall().resolves(null);
+        sinon.stub(dataAdapter, 'create').rejects(adapterError);
+
+        const next = sinon.spy();
+        const res = httpMocks.createResponse();
+        await svc.provideMiddlewareFunction(req, res, next);
+
+        assert.isTrue(next.calledOnce);
+        assert.strictEqual(next.firstCall.args[0], adapterError);
+        assert.notInstanceOf(next.firstCall.args[0], IdempotencyConflictError);
+    });
+
+    // #33 — adapter/validator failures are forwarded, never leaked as rejections.
+    it('findByIdempotencyKey rejection is forwarded to next(err)', async () => {
+        const svc = makeService();
+        const req = createRequest();
+        const findError = new Error('find boom');
+        sinon.stub(dataAdapter, 'findByIdempotencyKey').rejects(findError);
+
+        const next = sinon.spy();
+        await svc.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            next
+        );
+
+        assert.isTrue(next.calledOnce);
+        assert.strictEqual(next.firstCall.args[0], findError);
+    });
+
+    it('a throwing intent validator is forwarded to next(err)', async () => {
+        const intentValidator = new DefaultIntentValidator();
+        dataAdapter = new InMemoryDataAdapter();
+        const svc = new IdempotencyService({
+            idempotencyKeyHeader: 'idempotency-key',
+            intentValidator,
+            dataAdapter,
+            responseValidator: new SuccessfulResponseValidator(),
+        });
+        const req = createRequest();
+
+        // Seed a resource so the intent validator is reached on the retry.
+        await svc.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            sinon.spy()
+        );
+
+        const intentError = new Error('intent boom');
+        sinon.stub(intentValidator, 'isValidIntent').throws(intentError);
+
+        const next = sinon.spy();
+        await svc.provideMiddlewareFunction(
+            createCloneRequest(req),
+            httpMocks.createResponse(),
+            next
+        );
+
+        assert.isTrue(next.calledOnce);
+        assert.strictEqual(next.firstCall.args[0], intentError);
+    });
+
+    // #35 — a client cannot spoof a hit through a request header.
+    it('a client-supplied x-hit header on a fresh key is ignored', async () => {
+        const svc = makeService();
+        const req = httpMocks.createRequest({
+            url: 'https://something',
+            method: 'POST',
+            headers: {
+                'idempotency-key': faker.string.uuid(),
+                'x-hit': 'true',
+            },
+        });
+
+        const next = sinon.spy();
+        await svc.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            next
+        );
+
+        assert.isFalse(
+            svc.isHit(req),
+            'a spoofed x-hit header must not be honoured'
+        );
+        assert.isTrue(next.calledOnce);
     });
 });

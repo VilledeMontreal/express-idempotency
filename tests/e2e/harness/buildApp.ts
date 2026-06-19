@@ -18,6 +18,15 @@ export interface BuiltApp {
     controls: Controls;
 }
 
+export interface BuildAppHarnessOptions {
+    /**
+     * Mount the reference Express error handler (default `true`). Set to `false`
+     * to prove that the idempotency errors carry a status code Express derives
+     * natively (`409` / `417`) even when the consumer registers no handler.
+     */
+    withErrorHandler?: boolean;
+}
+
 /**
  * Wrap a data adapter to record deletions through the test controls, so a test
  * can await asynchronous cleanup (phantom-key removal, reportError) via
@@ -50,7 +59,8 @@ function traceAdapter(
  */
 export function buildApp(
     options: IdempotencyOptions = {},
-    controls: Controls = makeControls()
+    controls: Controls = makeControls(),
+    harnessOptions: BuildAppHarnessOptions = {}
 ): BuiltApp {
     const innerAdapter = options.dataAdapter ?? new InMemoryDataAdapter();
     const dataAdapter = traceAdapter(innerAdapter, controls);
@@ -100,24 +110,36 @@ export function buildApp(
         res.status(500).json({ error: 'boom' });
     });
 
-    // Error handler: the middleware sets res.status(409|417) then calls
-    // next(err); without an explicit handler Express would emit 500. Real
-    // consumers must provide an equivalent handler — this is a documented part
-    // of the middleware contract.
-    app.use(
-        (
-            err: Error,
-            _req: express.Request,
-            res: express.Response,
-            _next: express.NextFunction
-        ) => {
-            if (res.headersSent) {
-                return;
+    // Error handler: the idempotency errors carry their HTTP status on
+    // `statusCode` (and `status`), so a handler should derive the code from the
+    // error first — falling back to the status already set on the response. This
+    // is the recommended shape for real consumers (it also lets them branch on
+    // `instanceof IdempotencyConflictError`). It can be omitted (see
+    // `withErrorHandler`) to prove Express derives 409/417 natively.
+    if (harnessOptions.withErrorHandler !== false) {
+        app.use(
+            (
+                err: Error,
+                _req: express.Request,
+                res: express.Response,
+                _next: express.NextFunction
+            ) => {
+                if (res.headersSent) {
+                    return;
+                }
+                const typed = err as { statusCode?: number; status?: number };
+                const fromError =
+                    typeof typed.statusCode === 'number'
+                        ? typed.statusCode
+                        : typeof typed.status === 'number'
+                          ? typed.status
+                          : undefined;
+                const code =
+                    fromError ?? (res.statusCode >= 400 ? res.statusCode : 500);
+                res.status(code).json({ error: err.message });
             }
-            const code = res.statusCode >= 400 ? res.statusCode : 500;
-            res.status(code).json({ error: err.message });
-        }
-    );
+        );
+    }
 
     return { app, service, controls };
 }
