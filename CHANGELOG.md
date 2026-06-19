@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CI: build, lint, unit and e2e tests now run on GitHub Actions (`.github/workflows/ci.yml`); CircleCI is scoped to npm publishing on version tags only. Test coverage is uploaded to Codacy from GitHub Actions.
+
 ## [2.1.0] - 2026-06-19
 
 ### Added
