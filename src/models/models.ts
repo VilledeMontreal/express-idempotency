@@ -151,4 +151,19 @@ export interface IdempotencyOptions {
      * delivery semantics apply when the timeout is reached.
      */
     processingTimeout?: number;
+    /**
+     * Case-insensitive whitelist of request header names persisted into the
+     * `IdempotencyResource`. Any header not in this list is stripped before the
+     * request is handed to the data adapter, so secrets such as `Authorization`,
+     * `Cookie` or API keys are never stored at rest for the lifetime of the TTL.
+     * Default: `['content-type']`. Pass `[]` to persist no headers, or add the
+     * header names a custom `intentValidator` needs to compare. A provided list
+     * replaces the default entirely (it is not merged), so re-include
+     * `content-type` explicitly if you still need it.
+     *
+     * Note: the persisted headers are filtered, but the live `req.headers` passed
+     * to `intentValidator.isValidIntent(req, idempotencyRequest)` are not — a
+     * custom validator comparing a header must account for that asymmetry.
+     */
+    requestHeaderWhitelist?: string[];
 }

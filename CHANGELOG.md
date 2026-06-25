@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `requestHeaderWhitelist` option (`string[]`): case-insensitive whitelist of request headers persisted into the `IdempotencyResource`. Defaults to `['content-type']`; pass `[]` to persist none, or add the header names a custom `intentValidator` needs. (issue #36)
+
 ### Changed
 
 - CI: build, lint, unit and e2e tests now run on GitHub Actions (`.github/workflows/ci.yml`); CircleCI is scoped to npm publishing on version tags only. Test coverage is uploaded to Codacy from GitHub Actions.
 
 ### Security
 
+- Request headers are no longer persisted wholesale by data adapters. Previously `convertToIdempotencyRequest` stored the entire `req.headers` object — including `Authorization`, `Cookie` and API keys — into the idempotency resource, exposing those secrets **at rest** for the lifetime of the TTL with a persistent adapter (e.g. the MongoDB adapter). Only a configurable, case-insensitive whitelist is now persisted (default `['content-type']`), so secrets never reach the store. The default intent validator never read headers, so the default configuration keeps the same behaviour. (issue #36)
 - Pin patched versions of two **dev-only transitive** dependencies of the test toolchain via npm `overrides`, clearing the recurring Dependabot security-update failure. Dependabot could not apply the fixes automatically because the only resolvable path would have downgraded `nyc` from `18` to `14` (`security_update_not_possible`). The overrides resolve the advisories at the lockfile level; these packages belong to the test/coverage toolchain only and are **not** part of the published package (`files: ["dist"]`), so runtime consumers were never affected.
   - `@babel/core` (pulled by `nyc → istanbul-lib-instrument`) pinned to `^7.29.6`, fixing GHSA-4x5r-pxfx-6jf8 (arbitrary file read via `sourceMappingURL`, low).
   - `js-yaml` pinned to `^4.2.0`, removing the vulnerable `3.14.2` copy pulled by `nyc → @istanbuljs/load-nyc-config` and fixing GHSA-h67p-54hq-rp68 (quadratic-complexity DoS in merge-key handling, moderate).

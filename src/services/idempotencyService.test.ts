@@ -1060,3 +1060,102 @@ describe('Idempotency service — error typing, async guard & hit spoofing (#33/
         assert.isTrue(next.calledOnce);
     });
 });
+
+// #36 — request headers (Authorization, Cookie, API keys) must not be persisted
+// at rest. Only a configurable, case-insensitive whitelist is stored.
+describe('Idempotency service — request header filtering', () => {
+    let dataAdapter: InMemoryDataAdapter = null;
+
+    afterEach(() => {
+        sinon.restore();
+    });
+
+    function makeService(
+        requestHeaderWhitelist?: string[]
+    ): IdempotencyService {
+        dataAdapter = new InMemoryDataAdapter();
+        return new IdempotencyService({
+            idempotencyKeyHeader: 'idempotency-key',
+            intentValidator: new DefaultIntentValidator(),
+            dataAdapter,
+            responseValidator: new SuccessfulResponseValidator(),
+            requestHeaderWhitelist,
+        });
+    }
+
+    // Persist a fresh resource for `key` carrying the given headers and return
+    // the stored request headers. `create` runs synchronously before next(), so
+    // the resource is available as soon as the middleware resolves.
+    async function persistedHeaders(
+        svc: IdempotencyService,
+        key: string,
+        headers: Record<string, string>
+    ): Promise<any> {
+        const req = httpMocks.createRequest({
+            url: 'https://something/path',
+            method: 'POST',
+            headers: { 'idempotency-key': key, ...headers },
+        });
+        await svc.provideMiddlewareFunction(
+            req,
+            httpMocks.createResponse(),
+            sinon.spy()
+        );
+        const stored = await dataAdapter.findByIdempotencyKey(key);
+        return stored.request.headers;
+    }
+
+    it('persists only the default-whitelisted header (content-type) and drops secrets', async () => {
+        const svc = makeService();
+        const headers = await persistedHeaders(svc, 'key-default', {
+            authorization: 'Bearer super-secret',
+            cookie: 'session=abc',
+            'content-type': 'application/json',
+        });
+
+        assert.deepEqual(headers, { 'content-type': 'application/json' });
+        assert.notProperty(headers, 'authorization');
+        assert.notProperty(headers, 'cookie');
+        // The idempotency key header itself is not whitelisted, so it is dropped
+        // too (it is never read from the persisted request).
+        assert.notProperty(headers, 'idempotency-key');
+    });
+
+    it('honours a custom whitelist with case-insensitive matching', async () => {
+        const svc = makeService(['Authorization', 'X-Correlation-ID']);
+        const headers = await persistedHeaders(svc, 'key-custom', {
+            authorization: 'Bearer token',
+            'x-correlation-id': 'cid-123',
+            'content-type': 'application/json',
+            cookie: 'session=abc',
+        });
+
+        assert.deepEqual(headers, {
+            authorization: 'Bearer token',
+            'x-correlation-id': 'cid-123',
+        });
+        assert.notProperty(headers, 'content-type');
+        assert.notProperty(headers, 'cookie');
+    });
+
+    it('persists no headers when the whitelist is empty', async () => {
+        const svc = makeService([]);
+        const headers = await persistedHeaders(svc, 'key-empty', {
+            authorization: 'Bearer token',
+            'content-type': 'application/json',
+        });
+
+        assert.deepEqual(headers, {});
+    });
+
+    it('keeps a whitelisted header even when its value is falsy (filters on keys, not values)', async () => {
+        const svc = makeService(['x-empty']);
+        const headers = await persistedHeaders(svc, 'key-falsy', {
+            'x-empty': '',
+            authorization: 'Bearer token',
+        });
+
+        assert.deepEqual(headers, { 'x-empty': '' });
+        assert.notProperty(headers, 'authorization');
+    });
+});

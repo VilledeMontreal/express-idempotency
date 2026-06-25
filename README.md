@@ -110,6 +110,9 @@ app.post(
         // considered orphaned and can be taken over by a retry.
         // Disabled when absent or <= 0.
         processingTimeout,
+        // Case-insensitive whitelist of request headers persisted at rest.
+        // Default: ['content-type']. Use [] to persist none.
+        requestHeaderWhitelist,
     })
 );
 ```
@@ -181,6 +184,29 @@ app.post(
 - Choose a value at least 2× the worst-case processing duration to avoid false takeovers.
 - Due to the check-then-act nature of the takeover, at-least-once delivery semantics apply when the timeout is reached. If two retries race at expiry, one will win and the other will fall back to a `409`.
 - When a response is sent via `res.end()`, streaming, or `sendFile` (bypassing `res.send`), the middleware cannot capture the body. It automatically deletes the resource so the next retry is reprocessed rather than permanently blocked.
+
+#### Request header filtering
+
+By default the middleware persists **only** the `content-type` request header into the idempotency resource. Every other header — `Authorization`, `Cookie`, API keys — is stripped before the request is handed to the data adapter, so secret-bearing headers are never stored **at rest** for the lifetime of the TTL (previously the whole `req.headers` object was persisted).
+
+Use `requestHeaderWhitelist` to control which headers are kept. Matching is case-insensitive. The list **replaces** the default — it is not merged — so re-include `content-type` explicitly if you still need it.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        // Persist no request headers at all:
+        requestHeaderWhitelist: [],
+        // ...or keep the specific headers your custom intent validator needs
+        // (this replaces the default, so add back content-type if required):
+        // requestHeaderWhitelist: ['content-type', 'x-correlation-id'],
+    })
+);
+```
+
+> **Note:** this filters request **headers** only. The request **body** is still persisted as-is, so a secret carried in the body (e.g. a password in a POST payload) is not affected by this option.
+
+**Caveat:** only the **persisted** request is filtered. The intent validator receives the live request untouched, so `isValidIntent(req, idempotencyRequest)` compares the **raw** `req.headers` on one side against the **filtered** `idempotencyRequest.headers` on the other. A custom validator that compares a header must account for that asymmetry (and a header it relies on must be present in the whitelist).
 
 ## Testing
 
@@ -328,6 +354,9 @@ app.post(
         // considérée orpheline et reprise par une nouvelle tentative.
         // Désactivé si absent ou <= 0.
         processingTimeout,
+        // Liste blanche (insensible à la casse) des entêtes de requête persistés
+        // au repos. Défaut : ['content-type']. Utiliser [] pour n'en persister aucun.
+        requestHeaderWhitelist,
     })
 );
 ```
@@ -399,6 +428,29 @@ app.post(
 - Choisir une valeur d'au moins 2× la durée de traitement maximale pour éviter les reprises prématurées.
 - En raison de la nature « vérifier puis agir » de la reprise, une sémantique de livraison « au moins une fois » s'applique lorsque le délai est atteint. Si deux tentatives entrent en concurrence à l'expiration, l'une gagnera et l'autre recevra un `409`.
 - Lorsqu'une réponse est envoyée via `res.end()`, le streaming ou `sendFile` (sans passer par `res.send`), le middleware ne peut pas capturer le corps. Il supprime automatiquement la ressource afin que la prochaine tentative soit retraitée plutôt que bloquée de façon permanente.
+
+#### Filtrage des entêtes de requête
+
+Par défaut, le middleware ne persiste **que** l'entête de requête `content-type` dans la ressource d'idempotence. Tous les autres entêtes — `Authorization`, `Cookie`, clés d'API — sont retirés avant que la requête ne soit remise à l'adapteur de données, de sorte que les entêtes porteurs de secrets ne sont jamais stockés **au repos** pendant toute la durée du TTL (auparavant, l'objet `req.headers` entier était persisté).
+
+Utilisez `requestHeaderWhitelist` pour contrôler les entêtes conservés. La comparaison est insensible à la casse. La liste **remplace** le défaut — elle ne s'y ajoute pas — donc réincluez `content-type` explicitement si vous en avez encore besoin.
+
+```javascript
+app.post(
+    '*',
+    idempotency({
+        // Ne persister aucun entête de requête :
+        requestHeaderWhitelist: [],
+        // ...ou conserver les entêtes dont votre validateur d'intention a besoin
+        // (ceci remplace le défaut, donc rajoutez content-type au besoin) :
+        // requestHeaderWhitelist: ['content-type', 'x-correlation-id'],
+    })
+);
+```
+
+> **Note :** ceci filtre uniquement les **entêtes** de requête. Le **corps** de la requête reste persisté tel quel ; un secret transporté dans le corps (ex. un mot de passe dans un POST) n'est pas affecté par cette option.
+
+**Mise en garde :** seule la requête **persistée** est filtrée. Le validateur d'intention reçoit la requête vivante intacte ; ainsi `isValidIntent(req, idempotencyRequest)` compare les `req.headers` **bruts** d'un côté aux `idempotencyRequest.headers` **filtrés** de l'autre. Un validateur personnalisé qui compare un entête doit tenir compte de cette asymétrie (et l'entête dont il dépend doit figurer dans la liste blanche).
 
 ## Tests
 

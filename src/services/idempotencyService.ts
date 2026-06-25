@@ -21,6 +21,10 @@ import {
 
 // Default values
 const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
+// Request headers persisted by default. Keeps the non-sensitive content-type
+// (useful to some custom intent validators) while dropping Authorization,
+// Cookie, API keys, etc. so they are never stored at rest.
+const DEFAULT_REQUEST_HEADER_WHITELIST = ['content-type'];
 
 /**
  * This class represent the idempotency service.
@@ -51,6 +55,13 @@ export class IdempotencyService {
         const intentValidator =
             options.intentValidator ?? new DefaultIntentValidator();
 
+        // Normalise the request-header whitelist to lower case so matching is
+        // case-insensitive regardless of how the caller spelled the names. A `??`
+        // (not `||`) preserves an explicit empty array meaning "persist none".
+        const requestHeaderWhitelist = (
+            options.requestHeaderWhitelist ?? DEFAULT_REQUEST_HEADER_WHITELIST
+        ).map((name) => name.toLowerCase());
+
         // Normalise processingTimeout: absent/0/negative/non-finite = feature disabled (0).
         const processingTimeout =
             typeof options.processingTimeout === 'number' &&
@@ -66,6 +77,7 @@ export class IdempotencyService {
             responseValidator,
             intentValidator,
             processingTimeout,
+            requestHeaderWhitelist,
         };
     }
 
@@ -216,11 +228,33 @@ export class IdempotencyService {
     ): IdempotencyRequest {
         return {
             body: req.body,
-            headers: req.headers,
+            headers: this.filterRequestHeaders(req.headers),
             method: req.method,
             query: req.query,
             url: req.url,
         };
+    }
+
+    /**
+     * Keep only the whitelisted request headers (case-insensitive) so secrets
+     * (Authorization, Cookie, API keys) are never persisted at rest by the data
+     * adapter. Node lower-cases incoming header names and the whitelist is
+     * lower-cased at construction time, so the comparison is case-insensitive.
+     * Mirrors the response-header whitelist applied in `buildIdempotencyResponse`.
+     * @param headers Raw request headers
+     */
+    private filterRequestHeaders(headers: any): any {
+        const whitelist = this._options.requestHeaderWhitelist;
+        if (!headers) {
+            return {};
+        }
+        // Build from entries (rather than a keyed assignment) so we avoid a
+        // dynamic object-injection sink on a computed key.
+        return Object.fromEntries(
+            Object.entries(headers).filter(([name]) =>
+                whitelist.includes(name.toLowerCase())
+            )
+        );
     }
 
     /**
