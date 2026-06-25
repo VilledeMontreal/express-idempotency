@@ -70,7 +70,11 @@
     "mocha": {
       "diff": "^8.0.4",
       "serialize-javascript": "^7.0.5"
-    }
+    },
+    "istanbul-lib-instrument": {
+      "@babel/core": "^7.29.6"
+    },
+    "js-yaml": "^4.2.0"
   },
   "dependencies": {
     "autobind-decorator": "^2.4.0",
