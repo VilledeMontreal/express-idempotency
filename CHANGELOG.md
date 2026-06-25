@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- CI: build, lint, unit and e2e tests now run on GitHub Actions (`.github/workflows/ci.yml`); CircleCI is scoped to npm publishing on version tags only. Test coverage is uploaded to Codacy from GitHub Actions.
+- CI and release both run on GitHub Actions; CircleCI has been removed. `ci.yml` runs build, lint, unit and e2e tests (coverage uploaded to Codacy); `release.yml` publishes to npm on version tags via OIDC **trusted publishing** (no long-lived `NPM_TOKEN`) and creates a GitHub Release from the CHANGELOG. Pre-release tags (`vX.Y.Z-<suffix>`) publish under the `rc` dist-tag.
 
 ### Fixed
 

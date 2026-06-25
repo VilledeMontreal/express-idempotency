@@ -28,7 +28,12 @@ Hooks Husky : `pre-commit` est vide par design ; `pre-push` exécute `npm run pr
 
 ## Release
 
-**GitHub Actions** (`.github/workflows/ci.yml`) exécute build, lint, prettier, tests unitaires + e2e sur push (toutes branches) et PR ; la couverture (lcov) est uploadée vers Codacy **uniquement sur push vers le repo upstream** (le secret n'est pas exposé aux PR de forks). **CircleCI** (`.circleci/config.yml`) est réduit à la **publication npm sur tag git** : `vX.Y.Z` → publication normale, `vX.Y.Z-<suffixe>` → publication avec dist-tag `rc`. Branches : `master` (production) et `develop`.
+Tout passe par **GitHub Actions** (plus de CircleCI) :
+
+- **`.github/workflows/ci.yml`** — build, lint, prettier, tests unitaires + e2e sur push (toutes branches) et PR ; la couverture (lcov) est uploadée vers Codacy **uniquement sur push vers le repo upstream** (le secret n'est pas exposé aux PR de forks).
+- **`.github/workflows/release.yml`** — déclenché sur tag `vX.Y.Z`, rejoue les tests (unit + e2e) puis publie sur npm via **OIDC trusted publishing** (aucun `NPM_TOKEN` ; npm ≥ 11.5.1 échange le jeton OIDC de GHA contre un jeton éphémère, avec `--provenance`) et crée une **GitHub Release** (notes extraites du CHANGELOG). `vX.Y.Z` → dist-tag `latest`, `vX.Y.Z-<suffixe>` → dist-tag `rc`. Le job `version` échoue si aucune section `## [X.Y.Z]` n'existe dans `CHANGELOG.md`. Le job `publish` tourne dans l'environnement GitHub **`npm-production`** : y ajouter un *required reviewer* (Settings → Environments) impose une **approbation manuelle** avant chaque publication. Actions épinglées au SHA.
+
+**Prérequis publication** : le package doit être configuré en *trusted publisher* sur npmjs.com (compte avec rôle maintainer) — repo `VilledeMontreal/express-idempotency` + workflow `release.yml`. Le workflow `release.yml` doit exister sur le commit pointé par le tag (re-tagger après merge si besoin). Branches : `master` (production) et `develop`.
 
 ## Tests e2e
 

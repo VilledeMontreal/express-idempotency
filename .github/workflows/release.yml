@@ -1,0 +1,145 @@
+name: Release
+
+# Déclenché uniquement sur un tag de version `vX.Y.Z` (ou `vX.Y.Z-<suffixe>` pour
+# un release candidate). Pipeline : version (+ vérif CHANGELOG) → publish npm via
+# OIDC trusted publishing (aucun NPM_TOKEN) → GitHub Release (notes du CHANGELOG).
+#
+# Durcissements :
+# - actions tierces épinglées au SHA du commit (anti tag-hijack), version en commentaire ;
+# - valeurs dérivées du tag passées via `env:` (jamais interpolées en `${{ }}` dans un
+#   `run:`) pour éviter l'injection de commande via un nom de tag forgé ;
+# - job `publish` dans l'environnement `npm-production` (gate d'approbation possible) ;
+# - exécution restreinte au repo upstream (les forks ne publient pas).
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Sérialise les releases par tag ; ne jamais annuler une publication en cours.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================================================
+  # Extraction de version depuis le tag + vérification du CHANGELOG
+  # ==========================================================================
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      base_version: ${{ steps.version.outputs.base_version }}
+      dist_tag: ${{ steps.version.outputs.dist_tag }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # GITHUB_REF_NAME is a built-in env var (not a GitHub Actions expression),
+          # so it is safe to expand here without risking command injection.
+          VERSION="${GITHUB_REF_NAME#v}"
+          BASE_VERSION="${VERSION%%-*}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "base_version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
+          # A pre-release suffix (e.g. 2.1.0-rc.1) publishes under the `rc`
+          # dist-tag; a plain version publishes under `latest`.
+          if [ "$VERSION" != "$BASE_VERSION" ]; then
+            echo "dist_tag=rc" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Version: ${VERSION} (base ${BASE_VERSION})"
+
+      - name: Verify CHANGELOG entry exists
+        env:
+          BASE_VERSION: ${{ steps.version.outputs.base_version }}
+        run: |
+          if ! grep -q "## \[${BASE_VERSION}\]" CHANGELOG.md; then
+            echo "::error::Aucune entrée CHANGELOG.md pour la version ${BASE_VERSION}"
+            exit 1
+          fi
+
+  # ==========================================================================
+  # Publication npm via OIDC trusted publishing
+  # Aucun NPM_TOKEN : npm (>= 11.5.1) échange le jeton OIDC de GitHub Actions
+  # contre un jeton de publication éphémère. Requiert que le package soit
+  # configuré en « trusted publisher » sur npmjs.com (repo + nom du workflow).
+  # Le job tourne dans l'environnement `npm-production` : ajouter un required
+  # reviewer sur cet environnement (Settings → Environments) pour exiger une
+  # approbation manuelle avant chaque publication.
+  # ==========================================================================
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: version
+    if: github.repository == 'VilledeMontreal/express-idempotency'
+    environment: npm-production
+    permissions:
+      contents: read
+      id-token: write # requis pour l'OIDC trusted publishing
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          # Node 24 ships npm >= 11.5.1, required for OIDC trusted publishing —
+          # no separate npm upgrade step needed.
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test (unit + coverage)
+        run: npm test
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Build distribution
+        run: npm run compile
+
+      - name: Align package.json version with the tag
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: npm version --no-git-tag-version --allow-same-version "$VERSION"
+
+      - name: Publish to npm (OIDC trusted publishing)
+        env:
+          DIST_TAG: ${{ needs.version.outputs.dist_tag }}
+        run: npm publish --provenance --access public --tag "$DIST_TAG"
+
+  # ==========================================================================
+  # GitHub Release (notes extraites de la section CHANGELOG correspondante)
+  # ==========================================================================
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [version, publish]
+    if: github.repository == 'VilledeMontreal/express-idempotency'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Extract changelog
+        env:
+          BASE_VERSION: ${{ needs.version.outputs.base_version }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          awk "/^## \[${BASE_VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "express-idempotency v${VERSION}" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        with:
+          name: "v${{ needs.version.outputs.version }}"
+          body_path: release_notes.md
+          prerelease: ${{ needs.version.outputs.dist_tag == 'rc' }}
