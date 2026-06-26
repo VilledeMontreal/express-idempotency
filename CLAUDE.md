@@ -86,6 +86,7 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 
 - **DCO obligatoire** : toujours committer avec `git commit -s` (`Signed-off-by` correspondant à l'auteur). Le check DCO des PRs échoue sinon ; rattrapage : `git commit --amend -s --no-edit` puis force-push.
 - **Workflow fork** : `origin` = fork, `upstream` = `VilledeMontreal`. Brancher depuis `upstream/master`, pousser la branche sur le fork, ouvrir la PR vers `master` d'upstream.
+- **Branch protection `master`** : un ruleset GitHub protège `master` — PR obligatoire (0 approbation requise), status check `build-test` (CI GitHub Actions) requis, pas de force-push ni de suppression de branche. Le rôle *Repository admin* peut contourner (bypass toujours actif, à réserver aux urgences). Les push directs sur `master` sont bloqués ; tout passe par une PR avec CI verte.
 
 ## Conventions du repo
 
