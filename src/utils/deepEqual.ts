@@ -2,6 +2,132 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
+// Well below V8's call-stack limit; real request payloads stay under ~50.
+const MAX_DEPTH = 1000;
+
+function isObjectLike(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function sameBytes(a: ArrayBufferView, b: ArrayBufferView): boolean {
+    return (
+        a.byteLength === b.byteLength &&
+        Buffer.compare(
+            new Uint8Array(a.buffer, a.byteOffset, a.byteLength),
+            new Uint8Array(b.buffer, b.byteOffset, b.byteLength)
+        ) === 0
+    );
+}
+
+/**
+ * One comparison run. Tracks the pairs currently under comparison up the call
+ * chain so cyclic structures terminate.
+ */
+class LooseDeepComparer {
+    private readonly ancestors = new Map<object, Set<object>>();
+
+    // Type dispatch is inherently branchy; each branch is a one-liner.
+    // eslint-disable-next-line complexity
+    public equals(a: unknown, b: unknown, depth: number): boolean {
+        if (a === b) {
+            return true;
+        }
+        if (depth > MAX_DEPTH) {
+            return false;
+        }
+
+        const aIsObject = isObjectLike(a);
+        const bIsObject = isObjectLike(b);
+        if (!aIsObject || !bIsObject) {
+            // Only two primitives can be loosely equal; an object never equals one.
+            // eslint-disable-next-line eqeqeq
+            return !aIsObject && !bIsObject && a == b;
+        }
+
+        const aIsDate = a instanceof Date;
+        const bIsDate = b instanceof Date;
+        if (aIsDate || bIsDate) {
+            return aIsDate && bIsDate && a.getTime() === b.getTime();
+        }
+
+        if (Array.isArray(a) !== Array.isArray(b)) {
+            return false;
+        }
+
+        const aIsView = ArrayBuffer.isView(a);
+        const bIsView = ArrayBuffer.isView(b);
+        if (aIsView || bIsView) {
+            return aIsView && bIsView && sameBytes(a, b);
+        }
+
+        return this.equalObjects(a, b, depth);
+    }
+
+    /**
+     * Own enumerable string keys only — no prototype walk, no symbol keys — so
+     * a null-prototype object equals its plain-object twin.
+     */
+    private equalObjects(
+        a: Record<string, unknown>,
+        b: Record<string, unknown>,
+        depth: number
+    ): boolean {
+        if (this.isAncestorPair(a, b)) {
+            return true; // cycle: this pair is already being compared higher up
+        }
+
+        const aEntries = Object.entries(a);
+        const bEntries = new Map(Object.entries(b));
+        if (aEntries.length !== bEntries.size) {
+            return false;
+        }
+
+        this.enter(a, b);
+        try {
+            return this.equalEntries(aEntries, bEntries, depth);
+        } finally {
+            this.leave(a, b);
+        }
+    }
+
+    private equalEntries(
+        aEntries: Array<[string, unknown]>,
+        bEntries: Map<string, unknown>,
+        depth: number
+    ): boolean {
+        for (const [key, aValue] of aEntries) {
+            if (
+                !bEntries.has(key) ||
+                !this.equals(aValue, bEntries.get(key), depth + 1)
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private isAncestorPair(a: object, b: object): boolean {
+        return this.ancestors.get(a)?.has(b) ?? false;
+    }
+
+    private enter(a: object, b: object): void {
+        let seenWithA = this.ancestors.get(a);
+        if (!seenWithA) {
+            seenWithA = new Set();
+            this.ancestors.set(a, seenWithA);
+        }
+        seenWithA.add(b);
+    }
+
+    private leave(a: object, b: object): void {
+        const seenWithA = this.ancestors.get(a);
+        seenWithA.delete(b);
+        if (seenWithA.size === 0) {
+            this.ancestors.delete(a);
+        }
+    }
+}
+
 /**
  * Prototype-agnostic, loose deep equality for JSON-like data.
  *
@@ -18,101 +144,5 @@
  * deeper than `MAX_DEPTH` fails closed (`false`).
  */
 export function deepEqual(a: unknown, b: unknown): boolean {
-    return equals(a, b, new Map(), 0);
-}
-
-// Well below V8's call-stack limit; real request payloads stay under ~50.
-const MAX_DEPTH = 1000;
-
-// Pairs currently under comparison up the call chain (cycle detection).
-type Ancestors = Map<object, Set<object>>;
-
-function isObjectLike(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
-
-function equals(
-    a: unknown,
-    b: unknown,
-    ancestors: Ancestors,
-    depth: number
-): boolean {
-    if (a === b) {
-        return true;
-    }
-    if (depth > MAX_DEPTH) {
-        return false;
-    }
-
-    const aIsObject = isObjectLike(a);
-    const bIsObject = isObjectLike(b);
-    if (!aIsObject || !bIsObject) {
-        // Only two primitives can be loosely equal; an object never equals one.
-        return !aIsObject && !bIsObject && a == b;
-    }
-
-    const aIsDate = a instanceof Date;
-    const bIsDate = b instanceof Date;
-    if (aIsDate || bIsDate) {
-        return aIsDate && bIsDate && a.getTime() === b.getTime();
-    }
-
-    if (Array.isArray(a) !== Array.isArray(b)) {
-        return false;
-    }
-
-    const aIsView = ArrayBuffer.isView(a);
-    const bIsView = ArrayBuffer.isView(b);
-    if (aIsView || bIsView) {
-        return aIsView && bIsView && sameBytes(a, b);
-    }
-
-    // Pair already under comparison higher up the call chain: a cycle.
-    let seenWithA = ancestors.get(a);
-    if (seenWithA?.has(b)) {
-        return true;
-    }
-
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) {
-        return false;
-    }
-
-    if (!seenWithA) {
-        seenWithA = new Set();
-        ancestors.set(a, seenWithA);
-    }
-    seenWithA.add(b);
-    try {
-        for (const key of aKeys) {
-            // `hasOwnProperty.call`: a null-prototype object has no such method.
-            if (
-                !Object.prototype.hasOwnProperty.call(b, key) ||
-                !equals(a[key], b[key], ancestors, depth + 1)
-            ) {
-                return false;
-            }
-        }
-        return true;
-    } finally {
-        seenWithA.delete(b);
-        if (seenWithA.size === 0) {
-            ancestors.delete(a);
-        }
-    }
-}
-
-function sameBytes(a: ArrayBufferView, b: ArrayBufferView): boolean {
-    if (a.byteLength !== b.byteLength) {
-        return false;
-    }
-    const aBytes = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
-    const bBytes = new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
-    for (let i = 0; i < aBytes.length; i++) {
-        if (aBytes[i] !== bBytes[i]) {
-            return false;
-        }
-    }
-    return true;
+    return new LooseDeepComparer().equals(a, b, 0);
 }
