@@ -1,5 +1,8 @@
 import { assert } from 'chai';
-import * as HttpStatus from 'http-status-codes';
+import {
+    HTTP_STATUS_CONFLICT,
+    HTTP_STATUS_EXPECTATION_FAILED,
+} from './idempotencyErrors';
 import {
     IdempotencyError,
     IdempotencyConflictError,
@@ -14,8 +17,8 @@ describe('Idempotency errors', () => {
             assert.instanceOf(err, Error);
             assert.instanceOf(err, IdempotencyError);
             assert.instanceOf(err, IdempotencyConflictError);
-            assert.equal(err.statusCode, HttpStatus.CONFLICT);
-            assert.equal(err.status, HttpStatus.CONFLICT);
+            assert.equal(err.statusCode, HTTP_STATUS_CONFLICT);
+            assert.equal(err.status, HTTP_STATUS_CONFLICT);
             assert.equal(err.name, 'IdempotencyConflictError');
         });
 
@@ -38,8 +41,8 @@ describe('Idempotency errors', () => {
             assert.instanceOf(err, Error);
             assert.instanceOf(err, IdempotencyError);
             assert.instanceOf(err, IdempotencyIntentMismatchError);
-            assert.equal(err.statusCode, HttpStatus.EXPECTATION_FAILED);
-            assert.equal(err.status, HttpStatus.EXPECTATION_FAILED);
+            assert.equal(err.statusCode, HTTP_STATUS_EXPECTATION_FAILED);
+            assert.equal(err.status, HTTP_STATUS_EXPECTATION_FAILED);
             assert.equal(err.name, 'IdempotencyIntentMismatchError');
         });
 

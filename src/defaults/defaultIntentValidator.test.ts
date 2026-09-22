@@ -93,4 +93,55 @@ describe('Default intent validator', () => {
 
         assert.isFalse(validator.isValidIntent(req, idempotencyRequest));
     });
+
+    // Regression #51: Express 5 null-prototype req.query vs stored request
+    // returned as plain objects by a serialising adapter (JSON round-trip).
+    describe('against a stored request round-tripped through JSON (serialising adapter)', () => {
+        const storedRequest: IdempotencyRequest = JSON.parse(
+            JSON.stringify(idempotencyRequest)
+        );
+
+        function nullProtoQuery(query: object): object {
+            return Object.assign(Object.create(null), query);
+        }
+
+        it('validates the intent when req.query is a null-prototype object', () => {
+            const req = httpMocks.createRequest({
+                url: 'http://something/path',
+                method: 'POST',
+                headers: idempotencyRequest.headers,
+                body: idempotencyRequest.body,
+            });
+            req.query = nullProtoQuery(idempotencyRequest.query) as any;
+
+            assert.isTrue(validator.isValidIntent(req, storedRequest));
+        });
+
+        it('validates the intent when both query objects are empty (null-prototype vs {})', () => {
+            const noQueryStored: IdempotencyRequest = JSON.parse(
+                JSON.stringify({ ...idempotencyRequest, query: {} })
+            );
+            const req = httpMocks.createRequest({
+                url: 'http://something/path',
+                method: 'POST',
+                headers: idempotencyRequest.headers,
+                body: idempotencyRequest.body,
+            });
+            req.query = nullProtoQuery({}) as any;
+
+            assert.isTrue(validator.isValidIntent(req, noQueryStored));
+        });
+
+        it('still detects an unmatching null-prototype query', () => {
+            const req = httpMocks.createRequest({
+                url: 'http://something/path',
+                method: 'POST',
+                headers: idempotencyRequest.headers,
+                body: idempotencyRequest.body,
+            });
+            req.query = nullProtoQuery({ param1: 'a', param2: 'c' }) as any;
+
+            assert.isFalse(validator.isValidIntent(req, storedRequest));
+        });
+    });
 });

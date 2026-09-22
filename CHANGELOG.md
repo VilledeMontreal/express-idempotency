@@ -18,9 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `qs` `6.16.0` (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g, moderate) and `body-parser` `2.3.0` (GHSA-v422-hmwv-36x6, low), both pulled by the `express` devDependency used by the e2e harness.
   - `@humanfs/node` `0.16.8` (GHSA-p498-v437-472g, moderate).
 
+### Added
+
+- Exported constants `HTTP_STATUS_CONFLICT` (`409`) and `HTTP_STATUS_EXPECTATION_FAILED` (`417`) from `errors/idempotencyErrors`, the status codes carried by `IdempotencyConflictError` / `IdempotencyIntentMismatchError`.
+- e2e: `JsonRoundTripDataAdapter` harness adapter (JSON at rest, the way Mongo/Redis/SQL adapters behave) replaying the full behavioural suite, plus regression tests proving that a null-prototype `req.query` (Express 5) still matches a serialised stored request (`200` replay, not `417`).
+
 ### Changed
 
+- **Zero runtime dependencies**: `autobind-decorator`, `deep-equal` and `http-status-codes` are dropped in favour of native equivalents (44 fewer packages in the install tree, smaller supply-chain surface). (issue #51)
+  - `deep-equal` → internal prototype-agnostic, loose deep-equality helper (`src/utils/deepEqual.ts`). Deliberately **not** `util.isDeepStrictEqual`: Express 5 exposes a null-prototype `req.query` while a serialising data adapter returns plain objects, so a strict comparison would reject every legitimate retry with a `417`. Semantics are unchanged (primitives compared loosely, prototypes ignored); payloads nested deeper than 1000 levels fail closed (`417`) instead of exhausting the call stack.
+  - `autobind-decorator` → explicit `.bind()` of the public methods in the `IdempotencyService` constructor; `experimentalDecorators` removed from `tsconfig.json`.
+  - `http-status-codes` → the exported constants above.
 - Add `.github/dependabot.yml`: weekly npm version updates **grouped** into one PR for devDependencies and one for runtime dependencies (instead of one PR per transitive package), plus monthly grouped updates for the SHA-pinned GitHub Actions. Conventional Commits prefixes (`chore(deps)`, `chore(deps-dev)`, `ci`) so Dependabot PRs pass commitlint.
+
+### Removed
+
+- Runtime dependencies `autobind-decorator`, `deep-equal`, `http-status-codes` and the `@types/deep-equal` devDependency (see *Changed*).
 
 ## [2.1.0] - 2026-06-25
 

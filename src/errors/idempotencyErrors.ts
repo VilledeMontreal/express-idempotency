@@ -2,7 +2,17 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-import * as HttpStatus from 'http-status-codes';
+/**
+ * HTTP `409 Conflict`: the idempotency key is already being processed by a
+ * request that has not completed yet.
+ */
+export const HTTP_STATUS_CONFLICT = 409;
+
+/**
+ * HTTP `417 Expectation Failed`: the idempotency key is reused on a request
+ * whose intent does not match the original one.
+ */
+export const HTTP_STATUS_EXPECTATION_FAILED = 417;
 
 /**
  * Base class for all errors emitted by the idempotency middleware.
@@ -57,7 +67,7 @@ export class IdempotencyConflictError extends IdempotencyError {
     constructor(
         message = 'A previous request is still in progress for this key.'
     ) {
-        super(message, HttpStatus.CONFLICT);
+        super(message, HTTP_STATUS_CONFLICT);
     }
 }
 
@@ -70,6 +80,6 @@ export class IdempotencyIntentMismatchError extends IdempotencyError {
     constructor(
         message = 'Misuse of the idempotency key. Please check your request.'
     ) {
-        super(message, HttpStatus.EXPECTATION_FAILED);
+        super(message, HTTP_STATUS_EXPECTATION_FAILED);
     }
 }

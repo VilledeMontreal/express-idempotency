@@ -39,7 +39,6 @@
     "@faker-js/faker": "^10.1.0",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/chai": "^5.2.3",
-    "@types/deep-equal": "^1.0.4",
     "@types/express": "^5.0.5",
     "@types/express-serve-static-core": "^5.1.0",
     "@types/mocha": "^10.0.10",
@@ -76,9 +75,5 @@
     },
     "js-yaml": "^4.2.0"
   },
-  "dependencies": {
-    "autobind-decorator": "^2.4.0",
-    "deep-equal": "^2.0.3",
-    "http-status-codes": "^2.3.0"
-  }
+  "dependencies": {}
 }
