@@ -22,3 +22,6 @@ yarn.lock
 # Test compilation
 .temp
 .temp-e2e/
+
+# TypeScript incremental build state (npm run compile)
+*.tsbuildinfo

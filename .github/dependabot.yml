@@ -1,0 +1,43 @@
+# Dependabot configuration.
+#
+# Goal: keep dev tooling patched without one PR per transitive package. Security
+# updates stay enabled (they are not driven by this file); version updates are
+# grouped so that a single weekly PR bundles every devDependency bump, and
+# runtime dependencies (published in `dist`) are grouped separately so they can
+# be reviewed on their own.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+      prefix-development: chore(deps-dev)
+    groups:
+      # Everything the test/lint/build toolchain needs — not shipped to consumers.
+      dev-dependencies:
+        dependency-type: development
+        patterns:
+          - '*'
+      # The three runtime dependencies (autobind-decorator, deep-equal,
+      # http-status-codes) — reviewed separately because they ship in `dist`.
+      runtime-dependencies:
+        dependency-type: production
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - '*'
