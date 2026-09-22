@@ -5,6 +5,23 @@ All notable changes to this library will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- Refresh `package-lock.json` (`npm audit fix`) to clear the 9 open `npm audit` / Dependabot alerts (5 high, 3 moderate, 1 low). All of them live in the **dev-only** toolchain (test, lint, coverage, e2e harness) and are **not** part of the published package (`files: ["dist"]`); runtime consumers were never affected. No dependency range in `package.json` changes. Supersedes Dependabot PRs #54 to #58, which only covered 5 of the 9 advisories.
+  - `@faker-js/faker` `10.1.0` → `10.6.0` (GHSA-qxc2-j82w-r537, arbitrary code execution through `helpers.fake` on untrusted templates, high).
+  - `brace-expansion` (all copies: `1.1.21`, `2.1.7`, `5.0.12`) — GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895 (DoS, high).
+  - `browserslist` `4.29.0` (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g, high) and `baseline-browser-mapping` `2.11.25` (GHSA-w5vr-8v7q-w6rv, moderate).
+  - `fast-uri` `3.1.8` — six host-confusion / SSRF advisories (high).
+  - `js-yaml` `4.3.2` — GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh (quadratic CPU, high).
+  - `qs` `6.16.0` (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g, moderate) and `body-parser` `2.3.0` (GHSA-v422-hmwv-36x6, low), both pulled by the `express` devDependency used by the e2e harness.
+  - `@humanfs/node` `0.16.8` (GHSA-p498-v437-472g, moderate).
+
+### Changed
+
+- Add `.github/dependabot.yml`: weekly npm version updates **grouped** into one PR for devDependencies and one for runtime dependencies (instead of one PR per transitive package), plus monthly grouped updates for the SHA-pinned GitHub Actions. Conventional Commits prefixes (`chore(deps)`, `chore(deps-dev)`, `ci`) so Dependabot PRs pass commitlint.
+
 ## [2.1.0] - 2026-06-25
 
 ### Added
@@ -182,6 +199,7 @@ For detailed migration instructions from 1.0.x to 2.0.0, see [MIGRATION_PLAN.md]
 3. **Install**: `npm install express-idempotency@2.0.0`
 4. **Test**: Run your tests to ensure type compatibility
 
+[Unreleased]: https://github.com/VilledeMontreal/express-idempotency/compare/v2.1.0...HEAD
 [2.1.0]: https://github.com/VilledeMontreal/express-idempotency/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/VilledeMontreal/express-idempotency/compare/v1.0.5...v2.0.0
 [1.0.5]: https://github.com/VilledeMontreal/express-idempotency/releases/tag/v1.0.5
