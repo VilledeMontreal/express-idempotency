@@ -2,10 +2,8 @@
 // Licensed under the MIT license.
 // See LICENSE file in the project root for full license information.
 
-import { boundClass } from 'autobind-decorator';
 import { DefaultIntentValidator } from './../defaults/defaultIntentValidator';
 import * as express from 'express';
-import * as HttpStatus from 'http-status-codes';
 import { InMemoryDataAdapter } from './../defaults/inMemoryDataAdapter';
 import { SuccessfulResponseValidator } from './../defaults/successfulResponseValidator';
 import {
@@ -15,6 +13,8 @@ import {
     IdempotencyResponse,
 } from '../models/models';
 import {
+    HTTP_STATUS_CONFLICT,
+    HTTP_STATUS_EXPECTATION_FAILED,
     IdempotencyConflictError,
     IdempotencyIntentMismatchError,
 } from '../errors/idempotencyErrors';
@@ -30,7 +30,6 @@ const DEFAULT_REQUEST_HEADER_WHITELIST = ['content-type'];
  * This class represent the idempotency service.
  * It contains all the logic.
  */
-@boundClass
 export class IdempotencyService {
     private _options: IdempotencyOptions;
 
@@ -79,6 +78,15 @@ export class IdempotencyService {
             processingTimeout,
             requestHeaderWhitelist,
         };
+
+        // Public methods are used detached (middleware handed to Express,
+        // destructuring by consumers): bind them explicitly.
+        this.provideMiddlewareFunction =
+            this.provideMiddlewareFunction.bind(this);
+        this.isHit = this.isHit.bind(this);
+        this.reportError = this.reportError.bind(this);
+        this.extractIdempotencyKeyFromReq =
+            this.extractIdempotencyKeyFromReq.bind(this);
     }
 
     /**
@@ -133,7 +141,7 @@ export class IdempotencyService {
                         )
                     ) {
                         // Invalid intent. Client must correct his request.
-                        res.status(HttpStatus.EXPECTATION_FAILED);
+                        res.status(HTTP_STATUS_EXPECTATION_FAILED);
                         safeNext(new IdempotencyIntentMismatchError());
                     } else if (resource.response) {
                         // A cached response is available: this request is an idempotency
@@ -175,7 +183,7 @@ export class IdempotencyService {
                         );
                     } else {
                         // Previous request still in progress.
-                        res.status(HttpStatus.CONFLICT);
+                        res.status(HTTP_STATUS_CONFLICT);
                         safeNext(new IdempotencyConflictError());
                     }
                 } else {
@@ -445,7 +453,7 @@ export class IdempotencyService {
                 .catch(() => null);
             if (existing) {
                 // A concurrent request won the unique-key constraint.
-                res.status(HttpStatus.CONFLICT);
+                res.status(HTTP_STATUS_CONFLICT);
                 next(new IdempotencyConflictError());
             } else {
                 // No resource present: a real adapter failure, not a race.

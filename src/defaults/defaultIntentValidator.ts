@@ -5,11 +5,15 @@ import { IIdempotencyIntentValidator } from './../models/models';
 
 import { IdempotencyRequest } from '../models/models';
 import * as express from 'express';
-import deepEqual from 'deep-equal';
+import { deepEqual } from '../utils/deepEqual';
 
 /**
  * This is the default implementation of the intent validator.
  * It basically check only the request address to see if it is corresponding.
+ *
+ * `query` and `body` are compared with a prototype-agnostic, loose deep
+ * equality: Express 5 exposes a null-prototype `req.query` while a serialising
+ * data adapter returns plain objects, and both must still match.
  */
 export class DefaultIntentValidator implements IIdempotencyIntentValidator {
     /**

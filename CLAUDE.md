@@ -41,12 +41,13 @@ Suite de bout en bout dans `tests/e2e/` (**hors `src/`** → exclue de la couver
 
 - `tests/e2e/harness/` — harness réutilisable : `buildApp(options?)` (app + routes instrumentées + error handler), `startServer(app)` (port 0 + mode standalone, draine les requêtes in-flight au close), `controls` (gates déterministes, compteurs d'exécution, traçage des `delete`), `runIdempotencySuite(makeApp)` rejouable sur n'importe quel data adapter.
 - `tests/e2e/inmemory.e2e.test.ts` — exécute la suite sur l'`InMemoryDataAdapter` par défaut.
+- `tests/e2e/json-roundtrip.e2e.test.ts` — rejoue la suite sur `harness/jsonRoundTripDataAdapter.ts` (JSON au repos, comme un vrai adapter Mongo/Redis/SQL) + régression #51 (`req.query` null-prototype d'Express 5 vs requête stockée sérialisée → replay 200, pas 417).
 - **Erreurs typées** : le middleware fait `res.status(409|417)` puis `next(err)` avec une erreur exportée portant `statusCode`/`status` (`IdempotencyConflictError` 409, `IdempotencyIntentMismatchError` 417, base `IdempotencyError`) ; Express en dérive le bon code nativement, **même sans error handler**. Le handler de `buildApp` (désactivable via `withErrorHandler: false`) sert de référence pour mettre en forme le corps.
 - Lancé en CI par GitHub Actions (step `E2E tests` du workflow `ci.yml`, après les tests unitaires). Le `pre-push` Husky ne lance PAS les e2e (CI-only).
 
 ## Architecture
 
-Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barrel). **`errors/idempotencyErrors.ts`** exporte `IdempotencyError` et ses sous-classes `IdempotencyConflictError` (409) / `IdempotencyIntentMismatchError` (417), portées par le middleware sur les chemins 409/417.
+Huit fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barrel) sauf `utils/deepEqual.ts` (helper interne). **Zéro dépendance runtime** (`dependencies: {}`) — ne pas en réintroduire. **`errors/idempotencyErrors.ts`** exporte `IdempotencyError` et ses sous-classes `IdempotencyConflictError` (409) / `IdempotencyIntentMismatchError` (417), portées par le middleware sur les chemins 409/417, ainsi que les constantes `HTTP_STATUS_CONFLICT` / `HTTP_STATUS_EXPECTATION_FAILED`.
 
 **`middleware/idempotency.ts`** — factory `idempotency(options?)` qui instancie un `IdempotencyService` stocké dans une variable de module (**singleton process-wide** : un second appel à la factory écrase le premier) et retourne sa fonction middleware. Les route handlers récupèrent le service via `getSharedIdempotencyService()`.
 
@@ -62,7 +63,7 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 |-----------|--------|------|
 | `IIdempotencyDataAdapter` | `InMemoryDataAdapter` (non-production, sans TTL) | Persistance des resources clé → requête → réponse |
 | `IIdempotencyResponseValidator` | `SuccessfulResponseValidator` (persiste si 2xx) | Décide si la réponse est mise en cache |
-| `IIdempotencyIntentValidator` | `DefaultIntentValidator` (url + method + query + body en deep-equal) | Anti-mésusage d'une clé sur une requête différente |
+| `IIdempotencyIntentValidator` | `DefaultIntentValidator` (url + method + query + body via `utils/deepEqual.ts`) | Anti-mésusage d'une clé sur une requête différente |
 
 `IIdempotencyDataAdapter` est implémentée par des packages externes (ex. `express-idempotency-mongo-adapter`) : tout changement à cette interface est un breaking change pour l'écosystème.
 
@@ -71,7 +72,8 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 - **Le middleware appelle toujours `next()`**, même après avoir rejoué une réponse cachée. C'est voulu (préserver la chaîne de middlewares) : le contrat impose aux handlers d'appeler `isHit(req)` et de `return` si true, et `reportError(req)` en cas d'échec métier (supprime la clé pour permettre un retry). Le corps est enveloppé dans un `try/catch` avec sentinelle `safeNext` : un `next` au plus, et toute erreur adapter/validator est transmise via `next(err)` (jamais d'unhandled rejection).
 - **La capture de réponse passe par un monkey-patch de `res.send`** (`sendHook`). `res.json` et `res.sendStatus` délèguent à `send` donc sont couverts ; `res.end` direct et le streaming ne le sont pas — limitation connue.
 - **Seul `content-type` est rejoué** parmi les headers de la réponse cachée (whiteliste dans `buildIdempotencyResponse`).
-- **`@boundClass` (autobind-decorator) sur `IdempotencyService`** est nécessaire : la fonction middleware est passée détachée de son instance.
+- **Les méthodes publiques d'`IdempotencyService` sont bindées explicitement dans le constructeur** (`.bind(this)`) : la fonction middleware est passée détachée de son instance et les consommateurs peuvent destructurer `isHit` / `reportError`. Pas de décorateur (`experimentalDecorators` est retiré du tsconfig).
+- **`utils/deepEqual.ts` doit rester prototype-agnostique et loose** (ne pas remplacer par `util.isDeepStrictEqual`) : Express 5 expose un `req.query` null-prototype alors qu'un adapter sérialisant (Mongo, Redis, SQL) renvoie des objets plain ; une comparaison stricte rejetterait chaque retry légitime en 417. Test de régression : `tests/e2e/json-roundtrip.e2e.test.ts` (adapter `JsonRoundTripDataAdapter`).
 - **Une réponse cachée prime toujours sur le takeover** : le flux vérifie `resource.response` (replay) **avant** `isLeaseExpired` (takeover). Une resource complète n'est jamais orpheline, quel que soit l'âge de son `createdAt` ; le lease/takeover (`processingTimeout`) ne concerne que les resources in-progress (sans réponse). Inverser cet ordre plafonnerait la fenêtre d'idempotence à `processingTimeout` au lieu du TTL de l'adapter.
 - **Le lease `processingTimeout` repose sur `IdempotencyResource.createdAt`** (estampillé par le middleware au `create`). Le data adapter doit le **persister et le retourner tel quel** ; `canStillPersist` (zombie-write guard) compare le `createdAt` en mémoire au `createdAt` relu pour ne pas écraser la réponse d'un takeover. Un adapter qui régénère `createdAt` casse le mécanisme (cf. `express-idempotency-mongo-adapter` issue #16).
 
@@ -80,6 +82,7 @@ Sept fichiers source dans `src/`, tout est ré-exporté par `src/index.ts` (barr
 - Le hit est marqué via un `WeakSet` côté serveur (`isHit` lit ce set, pas un header) : non spoofable. Un `x-hit` envoyé par le client est ignoré.
 - `findByIdempotencyKey` puis `create` n'est pas atomique : la garantie d'unicité sous concurrence repose sur le data adapter. Un échec de `create` est rejoué par un re-fetch (`startProcessingOrConflict`) → resource présente = 409, absente = erreur propagée.
 - `convertToIdempotencyRequest` persiste **tous** les headers de la requête originale (y compris `Authorization`).
+- Un `req.body` binaire (`express.raw()` → `Buffer`) n'est pas rejouable derrière un adapter sérialisant : le Buffer stocké revient en `{ type: 'Buffer', data: [...] }` et `utils/deepEqual.ts` (comme `deep-equal` avant lui) le juge différent → 417 au retry. Limitation connue, non couverte par la suite JSON round-trip.
 - TypeScript : `strict: true` mais `strictNullChecks: false` et `noImplicitAny: false` — ne pas supposer la null-safety.
 
 ## Git et PRs

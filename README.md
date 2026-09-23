@@ -24,6 +24,7 @@ This is a [Node.js](https://nodejs.org/) module designed to work with Express, a
 
 -   Middleware for Express with a high level of customization
 -   Helpers to detect processing from the middleware and report errors
+-   Zero runtime dependencies
 
 ## Examples
 
@@ -276,6 +277,7 @@ Ce module [Node.js](https://nodejs.org/) est conçu pour fonctionner avec Expres
 
 -   Middleware pour Express avec un haut niveau de configuration
 -   Utilitaires pour permettre la détection de l'intervention du middleware et rapporter les erreurs
+-   Aucune dépendance à l'exécution
 
 ## Exemples
 

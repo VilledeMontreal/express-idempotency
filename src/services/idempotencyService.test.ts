@@ -11,13 +11,17 @@ import {
 import * as httpMocks from 'node-mocks-http';
 import { IdempotencyService } from './idempotencyService';
 import {
+    HTTP_STATUS_CONFLICT,
+    HTTP_STATUS_EXPECTATION_FAILED,
     IdempotencyConflictError,
     IdempotencyIntentMismatchError,
 } from '../errors/idempotencyErrors';
 import * as express from 'express';
 import sinon from 'sinon';
-import * as HttpStatus from 'http-status-codes';
 import { EventEmitter } from 'events';
+
+// Status of a successful replay (not part of the library's public constants).
+const HTTP_STATUS_OK = 200;
 
 describe('Idempotency service', () => {
     let idempotencyService: IdempotencyService = null;
@@ -75,7 +79,7 @@ describe('Idempotency service', () => {
             conflictNextSpy
         );
         assert.isTrue(conflictNextSpy.calledOnce);
-        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.equal(conflictRes.statusCode, HTTP_STATUS_CONFLICT);
         assert.instanceOf(
             conflictNextSpy.firstCall.args[0],
             IdempotencyConflictError
@@ -154,7 +158,7 @@ describe('Idempotency service', () => {
         await idempotencyService.provideMiddlewareFunction(req2, res, next);
 
         assert.isTrue(next.calledOnce);
-        assert.equal(res.statusCode, HttpStatus.EXPECTATION_FAILED);
+        assert.equal(res.statusCode, HTTP_STATUS_EXPECTATION_FAILED);
         assert.instanceOf(
             next.firstCall.args[0],
             IdempotencyIntentMismatchError
@@ -281,7 +285,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         );
 
         assert.isTrue(conflictNext.calledOnce);
-        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.equal(conflictRes.statusCode, HTTP_STATUS_CONFLICT);
     });
 
     it('age within timeout — in-progress resource still returns 409', async () => {
@@ -309,7 +313,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
             conflictNext
         );
 
-        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.equal(conflictRes.statusCode, HTTP_STATUS_CONFLICT);
     });
 
     it('age exceeds timeout — takeover: next called, isHit false, response cached for third request', async () => {
@@ -385,7 +389,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
 
         assert.isTrue(replayNext.calledOnce);
         assert.isTrue(svc.isHit(replayReq));
-        assert.equal(replayRes.statusCode, HttpStatus.OK);
+        assert.equal(replayRes.statusCode, HTTP_STATUS_OK);
         assert.equal(replayRes._getData(), 'cached-body');
     });
 
@@ -429,7 +433,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
             conflictNext
         );
 
-        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.equal(conflictRes.statusCode, HTTP_STATUS_CONFLICT);
     });
 
     it('createdAt as epoch ms — expiry computed correctly', async () => {
@@ -562,7 +566,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
             conflictNext
         );
 
-        assert.equal(conflictRes.statusCode, HttpStatus.CONFLICT);
+        assert.equal(conflictRes.statusCode, HTTP_STATUS_CONFLICT);
         assert.isTrue(conflictNext.calledOnce);
     });
 
@@ -602,7 +606,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         await svc.provideMiddlewareFunction(req, res, next);
 
         assert.isTrue(next.calledOnce);
-        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        assert.equal(res.statusCode, HTTP_STATUS_CONFLICT);
         assert.instanceOf(next.firstCall.args[0], IdempotencyConflictError);
     });
 
@@ -643,7 +647,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         assert.isTrue(next.calledOnce);
         assert.strictEqual(next.firstCall.args[0], adapterError);
         assert.notInstanceOf(next.firstCall.args[0], IdempotencyConflictError);
-        assert.notEqual(res.statusCode, HttpStatus.CONFLICT);
+        assert.notEqual(res.statusCode, HTTP_STATUS_CONFLICT);
     });
 
     it('delete failure at takeover — propagates the adapter error to next(err)', async () => {
@@ -709,7 +713,7 @@ describe('Idempotency service — processingTimeout (lease/takeover)', () => {
         const intentRes = httpMocks.createResponse();
         await svc.provideMiddlewareFunction(req2, intentRes, intentNext);
 
-        assert.equal(intentRes.statusCode, HttpStatus.EXPECTATION_FAILED);
+        assert.equal(intentRes.statusCode, HTTP_STATUS_EXPECTATION_FAILED);
         assert.isFalse(
             deleteSpy.called,
             'delete should not be called for intent mismatch'
@@ -909,11 +913,11 @@ describe('Idempotency service — error typing, async guard & hit spoofing (#33/
         await svc.provideMiddlewareFunction(req2, res, next);
 
         assert.isTrue(next.calledOnce);
-        assert.equal(res.statusCode, HttpStatus.EXPECTATION_FAILED);
+        assert.equal(res.statusCode, HTTP_STATUS_EXPECTATION_FAILED);
         const err = next.firstCall.args[0];
         assert.instanceOf(err, IdempotencyIntentMismatchError);
-        assert.equal(err.statusCode, HttpStatus.EXPECTATION_FAILED);
-        assert.equal(err.status, HttpStatus.EXPECTATION_FAILED);
+        assert.equal(err.statusCode, HTTP_STATUS_EXPECTATION_FAILED);
+        assert.equal(err.status, HTTP_STATUS_EXPECTATION_FAILED);
     });
 
     it('in-progress conflict surfaces a 409 IdempotencyConflictError', async () => {
@@ -931,11 +935,11 @@ describe('Idempotency service — error typing, async guard & hit spoofing (#33/
         await svc.provideMiddlewareFunction(createCloneRequest(req), res, next);
 
         assert.isTrue(next.calledOnce);
-        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        assert.equal(res.statusCode, HTTP_STATUS_CONFLICT);
         const err = next.firstCall.args[0];
         assert.instanceOf(err, IdempotencyConflictError);
-        assert.equal(err.statusCode, HttpStatus.CONFLICT);
-        assert.equal(err.status, HttpStatus.CONFLICT);
+        assert.equal(err.statusCode, HTTP_STATUS_CONFLICT);
+        assert.equal(err.status, HTTP_STATUS_CONFLICT);
     });
 
     // #33 — concurrent create race on the initial (no-resource) branch.
@@ -962,7 +966,7 @@ describe('Idempotency service — error typing, async guard & hit spoofing (#33/
         await svc.provideMiddlewareFunction(req, res, next);
 
         assert.isTrue(next.calledOnce);
-        assert.equal(res.statusCode, HttpStatus.CONFLICT);
+        assert.equal(res.statusCode, HTTP_STATUS_CONFLICT);
         assert.instanceOf(next.firstCall.args[0], IdempotencyConflictError);
     });
 
